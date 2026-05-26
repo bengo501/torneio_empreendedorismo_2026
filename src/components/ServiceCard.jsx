@@ -1,5 +1,6 @@
 import { Clock, Leaf, ChevronRight } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { ODS_IMPACT } from '../data/explore.js'
 
 const CAT = {
   carro:     { label: 'Carro',    dot: 'bg-blue-400'   },
@@ -11,6 +12,7 @@ export default function ServiceCard({ service, rank, onSelect }) {
   const { dark } = useTheme()
   const isBest   = rank === 0
   const cat      = CAT[service.category]
+  const ods      = ODS_IMPACT[service.category]
 
   const bg    = dark ? 'bg-dark-900'    : 'bg-white'
   const bdr   = dark ? 'border-dark-800': 'border-gray-200'
@@ -84,7 +86,15 @@ export default function ServiceCard({ service, rank, onSelect }) {
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            {ods && (
+              <span
+                className="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none"
+                style={{ color: ods.color, backgroundColor: ods.color + '22', border: `1px solid ${ods.color}44` }}
+              >
+                ODS {ods.code}
+              </span>
+            )}
             <span className={`text-xs font-black ${score}`}>
               {(service.score * 10).toFixed(0)}
               <span className={`${scdim} font-medium`}>/100</span>

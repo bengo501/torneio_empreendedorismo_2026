@@ -43,8 +43,11 @@ export default function Login() {
       <div className="flex flex-col flex-1 bg-dark-950 rounded-t-4xl -mt-6 px-6 pt-8 pb-10">
         {step === 'phone' ? (
           <>
-            <h2 className="text-2xl font-bold text-white mb-1">Bem-vindo!</h2>
-            <p className="text-dark-400 text-sm mb-8">Entre com seu número para continuar</p>
+            <h2 className="text-2xl font-bold text-white mb-1">Acesso urbano para todos</h2>
+            <p className="text-dark-400 text-sm mb-2 leading-relaxed">
+              Zippi é uma plataforma de mobilidade inteligente que conecta pessoas à cidade — com IA, multimodalidade e impacto social.
+            </p>
+            <p className="text-dark-600 text-xs mb-6">Entre com seu número para começar</p>
 
             {/* Phone input */}
             <div className="flex items-center gap-3 bg-dark-800 border border-dark-700 rounded-2xl px-4 py-4 mb-4">
@@ -81,7 +84,7 @@ export default function Login() {
               onClick={() => navigate('/home')}
               className="mt-4 w-full py-3 text-sm text-dark-500 underline"
             >
-              Pular (modo protótipo)
+              Explorar sem conta (modo demo)
             </button>
           </>
         ) : (

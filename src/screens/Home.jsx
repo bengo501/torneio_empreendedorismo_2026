@@ -8,15 +8,19 @@ import { getCurrentPosition, reverseGeocode, searchPlaces, fetchRoute } from '..
 import { getWeather }  from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
+import { EXPLORE_CATEGORIES, EXPLORE_PLACES } from '../data/explore.js'
+
+// Porto Alegre — foco do MVP
+const POA_DEFAULT = { lat: -30.0346, lon: -51.2177, label: 'Porto Alegre, RS' }
 
 const SAVED = [
-  { label: 'Casa',     emoji: '🏠', address: 'R. dos Pinheiros, 870', lat: -23.566, lon: -46.683 },
-  { label: 'Trabalho', emoji: '💼', address: 'Av. Berrini, 105',      lat: -23.598, lon: -46.688 },
+  { label: 'Casa',     emoji: '🏠', address: 'Bairro Moinhos de Vento',  lat: -30.0230, lon: -51.1988 },
+  { label: 'Trabalho', emoji: '💼', address: 'Centro Histórico — POA',   lat: -30.0310, lon: -51.2300 },
 ]
 const RECENT = [
-  { label: 'Faculdade USP',       address: 'R. do Matão, 1010',       lat: -23.559, lon: -46.731 },
-  { label: 'Shopping Iguatemi',   address: 'Av. Faria Lima, 2232',    lat: -23.576, lon: -46.679 },
-  { label: 'Aeroporto Congonhas', address: 'Aeroporto Congonhas',     lat: -23.626, lon: -46.655 },
+  { label: 'Parque da Redenção',    address: 'Av. José Bonifácio',       lat: -30.0355, lon: -51.2071 },
+  { label: 'UFRGS Campus Centro',   address: 'Av. Paulo Gama, 110',      lat: -30.0320, lon: -51.2230 },
+  { label: 'Aeroporto Salgado Filho', address: 'Av. Severo Dullius, 90000', lat: -29.9937, lon: -51.1714 },
 ]
 
 export default function Home() {
@@ -42,8 +46,9 @@ export default function Home() {
   const [showReportModal,  setShowReportModal]  = useState(false)
   const [reportCoords,     setReportCoords]     = useState(null)
 
-  const [showVoice, setShowVoice] = useState(false)
-  const [voicePref, setVoicePref] = useState('balanced')
+  const [showVoice,       setShowVoice]       = useState(false)
+  const [voicePref,       setVoicePref]       = useState('balanced')
+  const [exploreCategory, setExploreCategory] = useState('todos')
 
   const [weather, setWeather] = useState(null)
 
@@ -63,9 +68,8 @@ export default function Home() {
       const w = await getWeather(pos.lat, pos.lon)
       setWeather(w)
     } catch {
-      const fallback = { lat: -23.5505, lon: -46.6333, label: 'São Paulo, SP' }
-      setOriginLabel(fallback.label)
-      setOrigin(fallback)
+      setOriginLabel(POA_DEFAULT.label)
+      setOrigin(POA_DEFAULT)
     } finally {
       setGpsLoading(false)
     }
@@ -397,6 +401,67 @@ export default function Home() {
                       </div>
                     </button>
                   ))}
+                </div>
+
+                {/* ── Explorar Porto Alegre ─────────────────────────── */}
+                <div className="mt-5">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <p className={`text-[10px] ${muted} font-bold uppercase tracking-widest`}>
+                      Explorar Porto Alegre
+                    </p>
+                    <span className="text-[9px] font-black text-zippi-400">ODS 10 · 11</span>
+                  </div>
+
+                  {/* Category chips */}
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 mb-3">
+                    {EXPLORE_CATEGORIES.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setExploreCategory(cat.id)}
+                        className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                          exploreCategory === cat.id
+                            ? 'bg-zippi-400 text-dark-950'
+                            : dark
+                              ? 'bg-dark-800 text-dark-400 border border-dark-700'
+                              : 'bg-gray-100 text-gray-500 border border-gray-200'
+                        }`}
+                      >
+                        <span className="text-[13px]">{cat.emoji}</span>
+                        <span>{cat.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Place rows */}
+                  <div className="flex flex-col">
+                    {EXPLORE_PLACES
+                      .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
+                      .slice(0, 5)
+                      .map(place => {
+                        const catInfo = EXPLORE_CATEGORIES.find(c => c.id === place.category)
+                        return (
+                          <button
+                            key={place.id}
+                            onClick={() => selectPlace({ label: place.name, lat: place.lat, lon: place.lon })}
+                            className={`flex items-center gap-3 px-2 py-2.5 rounded-xl ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'} transition-colors text-left`}
+                          >
+                            <div className={`w-9 h-9 rounded-xl ${dark ? 'bg-dark-800' : 'bg-gray-100'} flex items-center justify-center text-lg flex-shrink-0`}>
+                              {catInfo?.emoji ?? '📍'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-semibold ${text}`}>{place.name}</p>
+                              <p className={`text-xs ${muted} truncate`}>{place.desc}</p>
+                            </div>
+                            {place.freeAccess && (
+                              <span className="text-[9px] font-black text-zippi-400 bg-zippi-900/30 px-1.5 py-0.5 rounded-lg flex-shrink-0">
+                                GRÁTIS
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })
+                    }
+                  </div>
                 </div>
               </>
             )}

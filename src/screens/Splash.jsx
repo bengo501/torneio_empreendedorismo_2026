@@ -1,17 +1,24 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+const ODS_BADGES = [
+  { code: 10, label: 'Menos desigualdade', color: '#DD1367' },
+  { code: 11, label: 'Cidades sustentáveis', color: '#FF6700' },
+  { code: 13, label: 'Ação climática', color: '#3F7E44' },
+]
+
 export default function Splash() {
   const navigate = useNavigate()
   useEffect(() => {
-    const t = setTimeout(() => navigate('/login'), 2400)
+    const t = setTimeout(() => navigate('/login'), 2800)
     return () => clearTimeout(t)
   }, [navigate])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-dvh bg-dark-950 select-none relative overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute w-72 h-72 rounded-full bg-zippi-500/10 blur-3xl" />
+      {/* Background glows */}
+      <div className="absolute w-96 h-96 rounded-full bg-zippi-500/8 blur-3xl" />
+      <div className="absolute w-48 h-48 rounded-full bg-zippi-400/5 blur-2xl translate-y-20" />
 
       {/* Logo */}
       <div className="relative z-10 flex flex-col items-center gap-5">
@@ -24,21 +31,45 @@ export default function Splash() {
 
         <div className="text-center">
           <h1 className="text-5xl font-black tracking-tight text-white">Zippi</h1>
-          <p className="text-sm text-dark-400 mt-1 font-medium tracking-wider">
-            Transporte inteligente
+          <p className="text-sm text-zippi-400/80 mt-1 font-semibold tracking-wide">
+            Acesso urbano inteligente
           </p>
+          <p className="text-xs text-dark-500 mt-2 font-medium max-w-[200px] leading-relaxed">
+            Conectando pessoas à cidade com IA
+          </p>
+        </div>
+
+        {/* ODS badges */}
+        <div className="flex gap-2 mt-2">
+          {ODS_BADGES.map(ods => (
+            <div
+              key={ods.code}
+              className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl border border-white/5 bg-white/3"
+              style={{ borderColor: ods.color + '33' }}
+            >
+              <span
+                className="text-[10px] font-black leading-none"
+                style={{ color: ods.color }}
+              >
+                ODS {ods.code}
+              </span>
+              <span className="text-[8px] text-dark-600 leading-none text-center">{ods.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Bottom loader */}
-      <div className="absolute bottom-16 flex flex-col items-center gap-3">
+      <div className="absolute bottom-14 flex flex-col items-center gap-3">
         <div className="w-48 h-0.5 bg-dark-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-zippi-400 rounded-full"
-            style={{ animation: 'loadbar 2.2s ease forwards' }}
+            style={{ animation: 'loadbar 2.5s ease forwards' }}
           />
         </div>
-        <p className="text-xs text-dark-600 font-medium">v1.0 · Protótipo</p>
+        <p className="text-xs text-dark-700 font-medium">
+          MVP · Porto Alegre · 2026
+        </p>
       </div>
 
       <style>{`

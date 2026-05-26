@@ -4,12 +4,12 @@ import { MapPin } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 const STEPS = [
-  { label: 'Detectando localização',       icon: '📍' },
-  { label: 'Calculando distância',          icon: '📐' },
-  { label: 'Consultando preços ao vivo',    icon: '💰' },
-  { label: 'Verificando disponibilidade',   icon: '📶' },
-  { label: 'Analisando impacto ambiental',  icon: '🌿' },
-  { label: 'IA gerando recomendação',       icon: '🤖' },
+  { label: 'Identificando sua posição urbana',     icon: '📍' },
+  { label: 'Calculando rotas multimodais',          icon: '🗺️' },
+  { label: 'Comparando custos de acesso',           icon: '💰' },
+  { label: 'Verificando disponibilidade em tempo real', icon: '📶' },
+  { label: 'Medindo impacto ambiental (ODS 13)',    icon: '🌿' },
+  { label: 'IA recomendando melhor acesso urbano',  icon: '🤖' },
 ]
 
 export default function Loading() {

@@ -1,11 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, TrendingDown, Leaf, RotateCcw } from 'lucide-react'
 import { RIDE_HISTORY, STATS } from '../data/history.js'
+import { computeSocialImpact } from '../data/explore.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 
 export default function History() {
   const navigate = useNavigate()
   const { dark } = useTheme()
+  const impact   = computeSocialImpact(RIDE_HISTORY)
 
   const bg    = dark ? 'bg-dark-950'    : 'bg-gray-50'
   const bg2   = dark ? 'bg-dark-900'    : 'bg-white'
@@ -43,8 +45,45 @@ export default function History() {
         </div>
       </div>
 
+      {/* Social Impact Dashboard */}
+      <div className="px-5 pb-2">
+        <div className="flex items-center justify-between mb-3">
+          <p className={`text-xs ${dim} font-bold uppercase tracking-widest`}>Impacto Social</p>
+          <span className="text-[9px] font-black text-zippi-400 tracking-wider">ODS 10 · 11 · 13</span>
+        </div>
+        <div className={`${bg2} border ${bdr} rounded-3xl p-4`}>
+          <p className={`text-sm font-bold ${text} mb-4`}>Sua contribuição com Porto Alegre</p>
+
+          {/* ODS 13 — Ação Climática */}
+          <ImpactRow
+            code={13} color="#3F7E44" dark={dark}
+            label="Ação Climática"
+            desc={`${impact.totalCo2Saved.toFixed(2)} kg de CO₂ evitados`}
+            pct={Math.min(impact.greenPct, 100)}
+          />
+          {/* ODS 11 — Cidades Sustentáveis */}
+          <ImpactRow
+            code={11} color="#FF6700" dark={dark}
+            label="Cidades Sustentáveis"
+            desc={`${impact.greenRides} de ${impact.totalRides} viagens ecológicas`}
+            pct={impact.greenPct}
+          />
+          {/* ODS 10 — Redução de Desigualdades */}
+          <ImpactRow
+            code={10} color="#DD1367" dark={dark}
+            label="Menos Desigualdade"
+            desc={`R$${impact.totalSaved.toFixed(2)} economizados com Zippi`}
+            pct={Math.min(Math.round((impact.totalSaved / 30) * 100), 100)}
+          />
+
+          <p className={`text-[10px] ${muted} text-center mt-4 leading-relaxed`}>
+            Cada viagem ecológica é um voto por uma cidade mais justa e sustentável
+          </p>
+        </div>
+      </div>
+
       {/* Rides list */}
-      <div className={`flex-1 px-5 overflow-y-auto pb-10`}>
+      <div className={`flex-1 px-5 overflow-y-auto pb-10 mt-5`}>
         <p className={`text-xs ${dim} font-bold uppercase tracking-widest mb-3`}>
           Últimas viagens
         </p>
@@ -133,6 +172,34 @@ function StatCard({ icon, label, value, green, dark, bg2, bdr, text, dim }) {
       <p className="text-2xl mb-1">{icon}</p>
       <p className={`text-base font-black ${green ? 'text-zippi-400' : text}`}>{value}</p>
       <p className={`text-xs ${dim} mt-0.5`}>{label}</p>
+    </div>
+  )
+}
+
+function ImpactRow({ code, color, label, desc, pct, dark }) {
+  return (
+    <div className="mb-3 last:mb-0">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none"
+            style={{ color, backgroundColor: color + '22', border: `1px solid ${color}44` }}
+          >
+            ODS {code}
+          </span>
+          <span className={`text-xs font-semibold ${dark ? 'text-dark-300' : 'text-gray-600'}`}>
+            {label}
+          </span>
+        </div>
+        <span className="text-xs font-black" style={{ color }}>{pct}%</span>
+      </div>
+      <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-dark-700' : 'bg-gray-200'} overflow-hidden`}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+        />
+      </div>
+      <p className={`text-[10px] mt-1 ${dark ? 'text-dark-500' : 'text-gray-400'}`}>{desc}</p>
     </div>
   )
 }
