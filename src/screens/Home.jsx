@@ -1,163 +1,190 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin, Navigation, Search, ChevronRight, Zap, Leaf, Clock } from 'lucide-react'
+import { Search, Clock, Bookmark, ChevronRight, MapPin, Bell, History } from 'lucide-react'
 
-const QUICK_DESTINATIONS = [
-  { label: 'Shopping', emoji: '🛍️', address: 'Shopping Iguatemi, Av. Brig. Faria Lima' },
-  { label: 'Aeroporto', emoji: '✈️', address: 'Aeroporto Internacional de Congonhas' },
-  { label: 'Paulista', emoji: '🏙️', address: 'Av. Paulista, São Paulo' },
-  { label: 'Parque',   emoji: '🌳', address: 'Parque Ibirapuera, São Paulo' },
+const SAVED = [
+  { label: 'Casa',      emoji: '🏠', address: 'R. dos Pinheiros, 870 — Pinheiros' },
+  { label: 'Trabalho',  emoji: '💼', address: 'Av. Eng. L. C. Berrini, 105'       },
 ]
 
 const RECENT = [
-  { label: 'Faculdade USP', address: 'Rua do Matão, 1010 - Butantã', emoji: '🎓' },
-  { label: 'Trabalho', address: 'Av. Eng. Luís Carlos Berrini, 105', emoji: '💼' },
+  { label: 'Faculdade USP',    address: 'R. do Matão, 1010 — Butantã',     emoji: '🎓' },
+  { label: 'Shopping Iguatemi',address: 'Av. Brig. Faria Lima, 2232',       emoji: '🛍️' },
+  { label: 'Aeroporto Congonhas', address: 'Aeroporto Int. de Congonhas',   emoji: '✈️' },
 ]
 
 export default function Home() {
   const navigate = useNavigate()
-  const [origin,  setOrigin]  = useState('Detectando sua localização...')
-  const [dest,    setDest]    = useState('')
-  const [focused, setFocused] = useState(false)
+  const [dest,  setDest]  = useState('')
+  const [focus, setFocus] = useState(false)
+  const [origin, setOrigin] = useState('Detectando...')
 
   useEffect(() => {
-    const t = setTimeout(() => setOrigin('Localização atual — São Paulo, SP'), 1200)
+    const t = setTimeout(() => setOrigin('R. dos Pinheiros, 870 — Pinheiros'), 800)
     return () => clearTimeout(t)
   }, [])
 
-  function handleSearch(destination = dest) {
+  function go(destination) {
     if (!destination.trim()) return
     navigate('/loading', { state: { origin, destination } })
   }
 
   return (
-    <div className="flex flex-col min-h-dvh bg-surface">
-      {/* Header */}
-      <div className="px-5 pt-12 pb-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">Bem-vindo de volta</p>
-            <h1 className="text-2xl font-extrabold text-white mt-0.5">
-              Rot<span className="text-primary-400">AI</span>
-            </h1>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-card flex items-center justify-center border border-muted">
-            <span className="text-lg">👤</span>
-          </div>
-        </div>
+    <div className="relative flex flex-col min-h-dvh bg-dark-950 overflow-hidden">
 
-        {/* Origin pill */}
-        <div className="flex items-center gap-3 bg-card rounded-2xl px-4 py-3 border border-muted mb-3">
-          <div className="relative flex-shrink-0">
-            <div className="w-3 h-3 rounded-full bg-primary-500" />
-            <span className="animate-pulse-ring absolute inset-0 w-3 h-3 rounded-full bg-primary-500 opacity-40" />
-          </div>
-          <span className="text-sm text-slate-300 truncate">{origin}</span>
-          <Navigation size={14} className="text-primary-400 flex-shrink-0 ml-auto" />
-        </div>
+      {/* ── MAP BACKGROUND ── */}
+      <div className="absolute inset-0 top-0 bottom-[52%]">
+        <MapBackground />
+        {/* gradient to sheet */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-dark-950 to-transparent" />
+      </div>
 
-        {/* Destination input */}
-        <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 border transition-all ${
-          focused ? 'bg-card border-primary-500 shadow-lg shadow-primary-900/30' : 'bg-card border-muted'
-        }`}>
-          <MapPin size={16} className="text-slate-500 flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Para onde você vai?"
-            value={dest}
-            onChange={e => setDest(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none"
-          />
-          {dest && (
-            <button
-              onClick={() => handleSearch()}
-              className="w-8 h-8 rounded-xl bg-primary-500 flex items-center justify-center flex-shrink-0"
-            >
-              <Search size={14} className="text-white" />
-            </button>
-          )}
+      {/* ── TOP BAR ── */}
+      <div className="relative z-20 flex items-center justify-between px-5 pt-14 pb-2">
+        <div>
+          <p className="text-xs text-dark-400 font-medium">Sua localização</p>
+          <p className="text-sm font-semibold text-white truncate max-w-[220px]">{origin}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => navigate('/history')}
+            className="w-9 h-9 rounded-xl bg-dark-900/80 backdrop-blur-sm border border-dark-800 flex items-center justify-center"
+          >
+            <History size={16} className="text-dark-300" />
+          </button>
+          <button className="w-9 h-9 rounded-xl bg-dark-900/80 backdrop-blur-sm border border-dark-800 flex items-center justify-center relative">
+            <Bell size={16} className="text-dark-300" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-zippi-400" />
+          </button>
         </div>
       </div>
 
-      {/* Map placeholder */}
-      <div className="mx-5 mb-5 rounded-3xl overflow-hidden relative h-44 bg-card border border-muted">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-4xl mb-2">🗺️</div>
-            <p className="text-xs text-slate-500">Mapa interativo</p>
-          </div>
-        </div>
-        {/* Fake map grid */}
-        <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 300 176">
-          {Array.from({length: 10}).map((_,i) => (
-            <line key={`v${i}`} x1={i*30} y1={0} x2={i*30} y2={176} stroke="#4ade80" strokeWidth="0.5"/>
-          ))}
-          {Array.from({length: 7}).map((_,i) => (
-            <line key={`h${i}`} x1={0} y1={i*25} x2={300} y2={i*25} stroke="#4ade80" strokeWidth="0.5"/>
-          ))}
-        </svg>
-        {/* Location dot */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="relative">
-            <div className="w-4 h-4 rounded-full bg-primary-500 border-2 border-white shadow-lg" />
-            <div className="absolute inset-0 w-4 h-4 rounded-full bg-primary-500 animate-ping opacity-40" />
-          </div>
-        </div>
-      </div>
+      {/* ── BOTTOM SHEET ── */}
+      <div className="relative z-10 mt-auto bg-dark-950 rounded-t-4xl pt-2 pb-8">
+        {/* Handle */}
+        <div className="w-10 h-1 bg-dark-700 rounded-full mx-auto mb-5" />
 
-      {/* Quick destinations */}
-      <div className="px-5">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Destinos rápidos</p>
-        <div className="grid grid-cols-2 gap-2 mb-5">
-          {QUICK_DESTINATIONS.map(d => (
-            <button
-              key={d.label}
-              onClick={() => { setDest(d.address); handleSearch(d.address) }}
-              className="flex items-center gap-2 bg-card border border-muted rounded-2xl px-3 py-3 text-left active:scale-95 transition-transform"
-            >
-              <span className="text-xl">{d.emoji}</span>
-              <span className="text-sm font-medium text-white truncate">{d.label}</span>
-              <ChevronRight size={14} className="text-slate-600 ml-auto flex-shrink-0" />
-            </button>
-          ))}
+        {/* Search bar */}
+        <div className="px-5 mb-5">
+          <div
+            className={`flex items-center gap-3 rounded-2xl px-4 py-4 border transition-all ${
+              focus
+                ? 'bg-dark-800 border-zippi-400/60 shadow-lg shadow-zippi-900/20'
+                : 'bg-dark-800 border-dark-700'
+            }`}
+          >
+            <Search size={18} className={focus ? 'text-zippi-400' : 'text-dark-500'} />
+            <input
+              type="text"
+              placeholder="Para onde?"
+              value={dest}
+              onChange={e => setDest(e.target.value)}
+              onFocus={() => setFocus(true)}
+              onBlur={() => setFocus(false)}
+              onKeyDown={e => e.key === 'Enter' && go(dest)}
+              className="flex-1 bg-transparent text-white text-base font-medium outline-none placeholder-dark-600"
+            />
+            {dest && (
+              <button
+                onClick={() => go(dest)}
+                className="w-8 h-8 rounded-xl bg-zippi-400 flex items-center justify-center"
+              >
+                <ChevronRight size={16} className="text-dark-950" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Saved places */}
+        <div className="px-5 mb-5">
+          <div className="flex gap-2">
+            {SAVED.map(s => (
+              <button
+                key={s.label}
+                onClick={() => go(s.address)}
+                className="flex-1 flex items-center gap-2 bg-dark-800 border border-dark-700 rounded-2xl px-3 py-3 active:scale-95 transition-transform"
+              >
+                <div className="w-8 h-8 rounded-xl bg-dark-700 flex items-center justify-center flex-shrink-0 text-base">
+                  {s.emoji}
+                </div>
+                <span className="text-sm font-semibold text-white">{s.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Recent */}
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Recentes</p>
-        <div className="flex flex-col gap-2 mb-8">
-          {RECENT.map(r => (
-            <button
-              key={r.label}
-              onClick={() => { setDest(r.address); handleSearch(r.address) }}
-              className="flex items-center gap-3 bg-card border border-muted rounded-2xl px-4 py-3 text-left active:scale-95 transition-transform"
-            >
-              <span className="text-xl">{r.emoji}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">{r.label}</p>
-                <p className="text-xs text-slate-500 truncate">{r.address}</p>
-              </div>
-              <ChevronRight size={14} className="text-slate-600 ml-auto flex-shrink-0" />
-            </button>
-          ))}
+        <div className="px-5">
+          <p className="text-xs text-dark-500 font-semibold uppercase tracking-widest mb-3">Recentes</p>
+          <div className="flex flex-col gap-1">
+            {RECENT.map(r => (
+              <button
+                key={r.label}
+                onClick={() => go(r.address)}
+                className="flex items-center gap-3 px-3 py-3 rounded-2xl active:bg-dark-800 transition-colors text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-dark-800 flex items-center justify-center flex-shrink-0 text-xl">
+                  {r.emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white">{r.label}</p>
+                  <p className="text-xs text-dark-500 truncate">{r.address}</p>
+                </div>
+                <Clock size={14} className="text-dark-600 flex-shrink-0" />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Bottom feature pills */}
-      <div className="mt-auto px-5 pb-8 flex gap-2 overflow-x-auto no-scrollbar">
-        {[
-          { icon: <Zap size={12}/>,  label: 'Menor preço', color: 'text-yellow-400 bg-yellow-900/30' },
-          { icon: <Leaf size={12}/>, label: 'Eco-friendly', color: 'text-green-400 bg-green-900/30'  },
-          { icon: <Clock size={12}/>,label: 'Mais rápido',  color: 'text-blue-400 bg-blue-900/30'   },
-        ].map(f => (
-          <div key={f.label} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 ${f.color}`}>
-            {f.icon}
-            {f.label}
-          </div>
-        ))}
-      </div>
     </div>
+  )
+}
+
+function MapBackground() {
+  return (
+    <svg className="w-full h-full" viewBox="0 0 390 420" preserveAspectRatio="xMidYMid slice">
+      <rect width="390" height="420" fill="#111111"/>
+      {/* Street grid */}
+      {[30,70,110,150,190,230,270,310,350,390].map(x => (
+        <line key={`v${x}`} x1={x} y1="0" x2={x} y2="420" stroke="#181818" strokeWidth="1"/>
+      ))}
+      {[30,70,110,150,190,230,270,310,350,390,420].map(y => (
+        <line key={`h${y}`} x1="0" y1={y} x2="390" y2={y} stroke="#181818" strokeWidth="1"/>
+      ))}
+      {/* Main roads */}
+      <line x1="0" y1="180" x2="390" y2="140" stroke="#1E1E1E" strokeWidth="14"/>
+      <line x1="0" y1="260" x2="390" y2="300" stroke="#1E1E1E" strokeWidth="18"/>
+      <line x1="170" y1="0" x2="200" y2="420" stroke="#1E1E1E" strokeWidth="12"/>
+      <line x1="310" y1="0" x2="290" y2="420" stroke="#1E1E1E" strokeWidth="8"/>
+      <line x1="60"  y1="0" x2="80"  y2="420" stroke="#1E1E1E" strokeWidth="6"/>
+      {/* Blocks */}
+      {[
+        [20,100,60,50],[90,90,60,60],[230,100,60,50],[340,90,40,55],
+        [20,200,60,45],[90,205,65,50],[230,195,55,55],[340,195,40,55],
+        [20,310,70,60],[100,305,55,60],[230,305,55,55],[340,305,40,55],
+      ].map(([x,y,w,h],i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} rx="6" fill="#171717"/>
+      ))}
+      {/* Parks */}
+      <rect x="90" y="330" width="110" height="80" rx="8" fill="#141F14" opacity="0.8"/>
+      {/* User location */}
+      <circle cx="195" cy="230" r="28" fill="#3DED7A" opacity="0.08"/>
+      <circle cx="195" cy="230" r="16" fill="#3DED7A" opacity="0.15"/>
+      <circle cx="195" cy="230" r="9"  fill="#3DED7A"/>
+      <circle cx="195" cy="230" r="4"  fill="white"/>
+      {/* Nearby vehicles */}
+      <g transform="translate(130,170) rotate(45)">
+        <rect x="-5" y="-3" width="10" height="6" rx="2" fill="#3DED7A" opacity="0.7"/>
+      </g>
+      <g transform="translate(260,200) rotate(-20)">
+        <rect x="-5" y="-3" width="10" height="6" rx="2" fill="#3DED7A" opacity="0.5"/>
+      </g>
+      <g transform="translate(150,290) rotate(10)">
+        <rect x="-5" y="-3" width="10" height="6" rx="2" fill="#3DED7A" opacity="0.55"/>
+      </g>
+      <g transform="translate(240,160) rotate(-30)">
+        <rect x="-4" y="-2.5" width="8" height="5" rx="2" fill="#3DED7A" opacity="0.4"/>
+      </g>
+    </svg>
   )
 }
