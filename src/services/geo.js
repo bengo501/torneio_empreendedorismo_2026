@@ -1,5 +1,8 @@
-/** Get current GPS position (real device location) */
-export function getCurrentPosition() {
+/** Get current GPS position (real device location)
+ *  highAccuracy=true  → GPS chip (slower, more precise, may fail on Firefox)
+ *  highAccuracy=false → network/IP-based (faster, always works as fallback)
+ */
+export function getCurrentPosition(highAccuracy = true) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocalização não suportada neste dispositivo'))
@@ -8,7 +11,7 @@ export function getCurrentPosition() {
     navigator.geolocation.getCurrentPosition(
       pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       err => reject(err),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 0 }
     )
   })
 }
