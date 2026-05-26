@@ -159,3 +159,76 @@ export function getRankedServices(distanceKm, preferences) {
     .filter(s => s.score >= 0)
     .sort((a, b) => b.score - a.score)
 }
+
+/**
+ * Generate best multi-vehicle combinations for a route.
+ * Each combo splits the route between two services.
+ */
+export function getMultiVehicleCombos(distanceKm, weatherWarn = false) {
+  const combos = []
+  const viable = SERVICES.filter(s => !s.maxKm || s.maxKm >= distanceKm * 0.35)
+
+  for (const s1 of viable) {
+    for (const s2 of viable) {
+      if (s1.id === s2.id) continue
+
+      for (const split of [0.4, 0.5, 0.6]) {
+        const d1 = +(distanceKm * split).toFixed(2)
+        const d2 = +(distanceKm * (1 - split)).toFixed(2)
+
+        if (s1.maxKm && d1 > s1.maxKm) continue
+        if (s2.maxKm && d2 > s2.maxKm) continue
+
+        const price1 = calcPrice(s1, d1)
+        const price2 = calcPrice(s2, d2)
+        const totalPrice = +(price1 + price2).toFixed(2)
+
+        // Skip combos more expensive than best single vehicle
+        const bestSingle = Math.min(...SERVICES.map(s => calcPrice(s, distanceKm)))
+        if (totalPrice > bestSingle * 1.15) continue
+
+        const time1 = calcTime(s1, d1)
+        const time2 = calcTime(s2, d2)
+        const totalMin = time1 + time2 + 5 // +5 min to change vehicles
+
+        const co2 = +((s1.co2PerKm * d1 + s2.co2PerKm * d2) / 1000).toFixed(3)
+        const co2Saved = +((120 * distanceKm / 1000) - co2).toFixed(3)
+
+        // De-rank outdoor options if rain warning
+        let weatherPenalty = 0
+        if (weatherWarn) {
+          if (s1.category !== 'carro') weatherPenalty += 2
+          if (s2.category !== 'carro') weatherPenalty += 2
+        }
+
+        const score = +(
+          (10 - totalPrice / 4) * 0.45 +
+          (10 - totalMin / 8)   * 0.25 +
+          (co2Saved > 0 ? 10 : 5)       * 0.20 +
+          ((s1.availability + s2.availability) * 5) * 0.10 -
+          weatherPenalty
+        ).toFixed(2)
+
+        combos.push({
+          vehicle1: s1, vehicle2: s2,
+          distance1: d1, distance2: d2,
+          totalPrice, totalMin, co2, co2Saved,
+          score, weatherWarn: weatherWarn && weatherPenalty > 0,
+          id: `${s1.id}_${s2.id}_${split}`,
+        })
+      }
+    }
+  }
+
+  // Deduplicate: keep best score per vehicle pair (regardless of split)
+  const seen = new Set()
+  return combos
+    .sort((a, b) => b.score - a.score)
+    .filter(c => {
+      const key = [c.vehicle1.id, c.vehicle2.id].sort().join('_')
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 5)
+}
