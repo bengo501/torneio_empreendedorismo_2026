@@ -11,47 +11,40 @@ import { useTheme }    from '../context/ThemeContext.jsx'
 
 const SAVED = [
   { label: 'Casa',     emoji: '🏠', address: 'R. dos Pinheiros, 870', lat: -23.566, lon: -46.683 },
-  { label: 'Trabalho', emoji: '💼', address: 'Av. Berrini, 105',     lat: -23.598, lon: -46.688 },
+  { label: 'Trabalho', emoji: '💼', address: 'Av. Berrini, 105',      lat: -23.598, lon: -46.688 },
 ]
 const RECENT = [
-  { label: 'Faculdade USP',       address: 'R. do Matão, 1010',          lat: -23.559, lon: -46.731 },
-  { label: 'Shopping Iguatemi',   address: 'Av. Faria Lima, 2232',        lat: -23.576, lon: -46.679 },
-  { label: 'Aeroporto Congonhas', address: 'Aeroporto Int. Congonhas',    lat: -23.626, lon: -46.655 },
+  { label: 'Faculdade USP',       address: 'R. do Matão, 1010',       lat: -23.559, lon: -46.731 },
+  { label: 'Shopping Iguatemi',   address: 'Av. Faria Lima, 2232',    lat: -23.576, lon: -46.679 },
+  { label: 'Aeroporto Congonhas', address: 'Aeroporto Congonhas',     lat: -23.626, lon: -46.655 },
 ]
 
 export default function Home() {
-  const navigate          = useNavigate()
-  const { dark, toggle }  = useTheme()
+  const navigate         = useNavigate()
+  const { dark, toggle } = useTheme()
 
-  // ── Location ──────────────────────────────────────────────────
-  const [origin,      setOrigin]      = useState(null)
-  const [originLabel, setOriginLabel] = useState('Detectando localização…')
-  const [gpsLoading,  setGpsLoading]  = useState(false)
+  const [origin,       setOrigin]       = useState(null)
+  const [originLabel,  setOriginLabel]  = useState('Detectando localização…')
+  const [gpsLoading,   setGpsLoading]   = useState(false)
 
-  // ── Destinations ──────────────────────────────────────────────
-  const [destinations,   setDestinations]   = useState([{ label: '', lat: null, lon: null }])
-  const [activeDestIdx,  setActiveDestIdx]  = useState(0)
+  const [destinations,  setDestinations]  = useState([{ label: '', lat: null, lon: null }])
+  const [activeDestIdx, setActiveDestIdx] = useState(0)
 
-  // ── Search ────────────────────────────────────────────────────
   const [query,   setQuery]   = useState('')
   const [results, setResults] = useState([])
   const [focus,   setFocus]   = useState(false)
   const searchTimer = useRef(null)
 
-  // ── Map ───────────────────────────────────────────────────────
   const [routeData,    setRouteData]    = useState(null)
   const [mapClickMode, setMapClickMode] = useState(false)
 
-  // ── Community ─────────────────────────────────────────────────
-  const [reports,         setReports]         = useState([])
-  const [showReportModal, setShowReportModal] = useState(false)
-  const [reportCoords,    setReportCoords]    = useState(null)
+  const [reports,          setReports]          = useState([])
+  const [showReportModal,  setShowReportModal]  = useState(false)
+  const [reportCoords,     setReportCoords]     = useState(null)
 
-  // ── Voice ─────────────────────────────────────────────────────
-  const [showVoice,      setShowVoice]      = useState(false)
-  const [voicePref,      setVoicePref]      = useState('balanced')
+  const [showVoice, setShowVoice] = useState(false)
+  const [voicePref, setVoicePref] = useState('balanced')
 
-  // ── Weather ───────────────────────────────────────────────────
   const [weather, setWeather] = useState(null)
 
   // ── Init ──────────────────────────────────────────────────────
@@ -70,21 +63,20 @@ export default function Home() {
       const w = await getWeather(pos.lat, pos.lon)
       setWeather(w)
     } catch {
-      setOriginLabel('São Paulo, SP')
-      setOrigin({ lat: -23.5505, lon: -46.6333, label: 'São Paulo, SP' })
+      const fallback = { lat: -23.5505, lon: -46.6333, label: 'São Paulo, SP' }
+      setOriginLabel(fallback.label)
+      setOrigin(fallback)
     } finally {
       setGpsLoading(false)
     }
   }
 
-  // ── Route update ──────────────────────────────────────────────
   useEffect(() => {
     const dest = destinations[0]
     if (!origin || !dest?.lat) { setRouteData(null); return }
     fetchRoute(origin, dest).then(setRouteData)
   }, [origin, destinations])
 
-  // ── Debounced search ──────────────────────────────────────────
   useEffect(() => {
     clearTimeout(searchTimer.current)
     if (query.length < 2) { setResults([]); return }
@@ -137,11 +129,11 @@ export default function Home() {
     if (!dest?.lat) return
     navigate('/loading', {
       state: {
-        origin:         originLabel,
-        originCoords:   origin,
-        destination:    dest.label,
-        destCoords:     { lat: dest.lat, lon: dest.lon },
-        distanceKm:     routeData?.distanceKm,
+        origin:          originLabel,
+        originCoords:    origin,
+        destination:     dest.label,
+        destCoords:      { lat: dest.lat, lon: dest.lon },
+        distanceKm:      routeData?.distanceKm,
         weather,
         preferredFilter: voicePref,
         allDestinations: destinations.filter(d => d.lat),
@@ -149,42 +141,45 @@ export default function Home() {
     })
   }
 
-  // ── Voice result handler ──────────────────────────────────────
   async function handleVoiceResult({ destination, preference }) {
     setVoicePref(preference)
-    setQuery(destination)
     setActiveDestIdx(0)
     setFocus(true)
-    // Auto-search and select first result
     const places = await searchPlaces(destination, origin?.lat, origin?.lon)
     if (places.length > 0) {
       selectPlace(places[0])
     } else {
-      setResults(places)
+      setQuery(destination)
+      setResults([])
     }
   }
 
   const hasValidDest = destinations.some(d => d.lat)
 
-  // ── Theme tokens ──────────────────────────────────────────────
-  const sheet = dark ? 'bg-dark-950' : 'bg-white'
-  const card  = dark ? 'bg-dark-900 border-dark-800' : 'bg-gray-50 border-gray-200'
-  const inputRow = dark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-100'
-  const text  = dark ? 'text-white'   : 'text-gray-900'
-  const muted = dark ? 'text-dark-400': 'text-gray-500'
-  const floatBtn = 'w-10 h-10 rounded-2xl bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-90 transition-transform shadow-md'
+  // ── Theme ──────────────────────────────────────────────────────
+  const sheet   = dark ? 'bg-dark-950'    : 'bg-white'
+  const card    = dark ? 'bg-dark-900 border-dark-800' : 'bg-gray-50 border-gray-200'
+  const inpRow  = dark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-100'
+  const text    = dark ? 'text-white'     : 'text-gray-900'
+  const muted   = dark ? 'text-dark-400'  : 'text-gray-500'
+  const divClr  = dark ? 'border-dark-800': 'border-gray-100'
+
+  // Floating pill button style
+  const pill = 'w-10 h-10 rounded-2xl bg-black/45 backdrop-blur-md border border-white/15 flex items-center justify-center active:scale-90 transition-transform shadow-md'
 
   return (
-    // Root: full-screen relative container.
-    // The map sits as an absolutely-positioned background.
-    // All other UI panels are absolutely-positioned above it.
-    <div className="relative w-full overflow-hidden" style={{ height: '100dvh' }}>
+    /*
+     * Layout strategy — flex column filling the viewport:
+     *   • The map is absolute inset-0 (behind everything, full-screen)
+     *   • Top section and bottom sheet are real flex items (reliable height)
+     *   • Middle spacer (flex-1, pointer-events-none) exposes the map
+     * This avoids the "height:100dvh collapsing to 0" bug that broke the
+     * previous all-absolute layout.
+     */
+    <div className="relative flex flex-col min-h-dvh overflow-x-hidden">
 
-      {/* ── FULL-SCREEN MAP ────────────────────────────────────
-          isolation:isolate on ZippiMap itself contains Leaflet's
-          internal z-indexes (200–700) so they don't escape the
-          map div and overlap the app's own controls.              */}
-      <div className="absolute inset-0">
+      {/* ── FULL-SCREEN MAP (background, isolated stacking context) ── */}
+      <div className="absolute inset-0 z-0" style={{ isolation: 'isolate' }}>
         <ZippiMap
           origin={origin}
           destinations={destinations.filter(d => d.lat)}
@@ -195,76 +190,55 @@ export default function Home() {
         />
       </div>
 
-      {/* ── TOP GRADIENT fade (pointer-events-none) ─────────── */}
+      {/* ── TOP GRADIENT (visual softening, no interaction) ── */}
       <div
         className="absolute top-0 left-0 right-0 pointer-events-none z-10"
-        style={{
-          height: 140,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%)'
-        }}
+        style={{ height: 140, background: 'linear-gradient(to bottom,rgba(0,0,0,0.52) 0%,transparent 100%)' }}
       />
 
-      {/* ── TOP BAR — floats over map ──────────────────────── */}
-      <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-12">
+      {/* ══ TOP SECTION — in flex flow, z-20 beats map ══════════════ */}
+      <div className="relative z-20 flex-shrink-0 px-4 pt-12 pb-2 pointer-events-auto">
         <div className="flex items-start justify-between gap-3">
 
           {/* Location pill */}
-          <div className="flex items-center gap-2.5 bg-black/50 backdrop-blur-md rounded-2xl px-3 py-2.5 flex-1 max-w-[180px] shadow-md border border-white/10">
-            <div className="relative flex-shrink-0">
-              <div className="w-2.5 h-2.5 rounded-full bg-zippi-400" />
-              <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-zippi-400 animate-ping opacity-50" />
+          <div className="flex items-center gap-2.5 bg-black/50 backdrop-blur-md rounded-2xl px-3 py-2.5 min-w-0 flex-1 max-w-[192px] border border-white/10 shadow-md">
+            <div className="relative flex-shrink-0 w-3 h-3">
+              <div className="absolute inset-0 rounded-full bg-zippi-400" />
+              <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-50" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] text-white/50 font-semibold uppercase tracking-wider leading-none mb-0.5">Sua posição</p>
+              <p className="text-[9px] text-white/50 font-bold uppercase tracking-wider leading-none mb-0.5">Você está em</p>
               <p className="text-xs font-semibold text-white truncate leading-tight">{originLabel}</p>
             </div>
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={detectGPS}
-              className={floatBtn}
-              title="Minha localização"
-            >
-              <Crosshair
-                size={17}
-                className={gpsLoading ? 'text-zippi-400 animate-spin' : 'text-white'}
-              />
+          <div className="flex gap-1.5 flex-shrink-0">
+            <button onClick={detectGPS} className={pill} title="Minha localização">
+              <Crosshair size={16} className={gpsLoading ? 'text-zippi-400 animate-spin' : 'text-white'} />
             </button>
-            <button onClick={toggle} className={floatBtn} title="Alternar tema">
-              {dark
-                ? <Sun  size={17} className="text-yellow-300" />
-                : <Moon size={17} className="text-slate-200" />
-              }
+            <button onClick={toggle} className={pill} title="Tema">
+              {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-slate-200" />}
             </button>
-            <button
-              onClick={() => { setReportCoords(origin); setShowReportModal(true) }}
-              className={floatBtn}
-              title="Reportar ocorrência"
-            >
-              <TriangleAlert size={17} className="text-orange-400" />
+            <button onClick={() => { setReportCoords(origin); setShowReportModal(true) }} className={pill} title="Reportar">
+              <TriangleAlert size={16} className="text-orange-400" />
             </button>
-            <button
-              onClick={() => navigate('/history')}
-              className={floatBtn}
-              title="Histórico"
-            >
-              <History size={17} className="text-white" />
+            <button onClick={() => navigate('/history')} className={pill} title="Histórico">
+              <History size={16} className="text-white" />
             </button>
           </div>
         </div>
 
         {/* Weather strip */}
         {weather && (
-          <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl backdrop-blur-md text-white border shadow-sm ${
+          <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl backdrop-blur-md border shadow-sm ${
             weather.warn
               ? 'bg-yellow-900/70 border-yellow-600/40'
               : 'bg-black/35 border-white/10'
           }`}>
             <span className="text-sm leading-none">{weather.emoji}</span>
-            <span className="text-xs font-semibold">{weather.label}</span>
-            <span className="text-xs text-white/60">{weather.temp}°C</span>
+            <span className="text-xs font-semibold text-white">{weather.label}</span>
+            <span className="text-xs text-white/55">{weather.temp}°C</span>
             {weather.warn && (
               <span className="text-xs text-yellow-300 font-semibold">· Evite veículos abertos</span>
             )}
@@ -272,67 +246,67 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── MAP-CLICK MODE BANNER ───────────────────────────── */}
-      {mapClickMode && (
-        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-20 flex justify-center pointer-events-none">
-          <div className="bg-zippi-400 text-dark-950 px-5 py-3 rounded-2xl text-sm font-black shadow-xl">
-            📍 Toque no mapa para definir o destino
-          </div>
-        </div>
-      )}
+      {/* ══ MIDDLE SPACER — exposes the map, voice FAB ══════════════ */}
+      <div className="flex-1 relative z-10 min-h-[80px]" style={{ pointerEvents: 'none' }}>
 
-      {/* ── VOICE FAB — floats above bottom sheet ──────────── */}
-      <div className="absolute right-4 z-20" style={{ bottom: 'calc(56vh + 16px)' }}>
-        <button
-          onClick={() => setShowVoice(true)}
-          className="w-14 h-14 rounded-full bg-zippi-400 shadow-xl shadow-zippi-900/50 flex items-center justify-center active:scale-90 transition-transform border-2 border-white/20"
-          title="Assistente de voz"
-        >
-          <Mic size={26} className="text-dark-950" />
-        </button>
-        <p className="text-center text-[9px] font-bold text-white mt-1 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
-          Falar
-        </p>
+        {/* Map-click mode banner */}
+        {mapClickMode && (
+          <div className="absolute inset-x-0 top-6 flex justify-center z-20" style={{ pointerEvents: 'none' }}>
+            <div className="bg-zippi-400 text-dark-950 px-5 py-3 rounded-2xl text-sm font-black shadow-xl">
+              📍 Toque no mapa para definir o destino
+            </div>
+          </div>
+        )}
+
+        {/* Voice assistant FAB */}
+        <div className="absolute bottom-4 right-4 flex flex-col items-center gap-1" style={{ pointerEvents: 'auto' }}>
+          <button
+            onClick={() => setShowVoice(true)}
+            className="w-14 h-14 rounded-full bg-zippi-400 shadow-2xl shadow-zippi-900/50 flex items-center justify-center active:scale-90 transition-transform border-2 border-white/20"
+            title="Assistente de voz"
+          >
+            <Mic size={26} className="text-dark-950" />
+          </button>
+          <span className="text-[9px] font-bold text-white" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+            Falar
+          </span>
+        </div>
       </div>
 
-      {/* ── BOTTOM SHEET ────────────────────────────────────── */}
+      {/* ══ BOTTOM SHEET — in flex flow, z-20, scrollable ═══════════ */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-30 ${sheet} rounded-t-4xl overflow-hidden`}
-        style={{
-          maxHeight: '60vh',
-          boxShadow: '0 -4px 32px rgba(0,0,0,0.25)',
-        }}
+        className={`relative z-20 flex-shrink-0 ${sheet} rounded-t-4xl overflow-hidden`}
+        style={{ maxHeight: '60vh', boxShadow: '0 -4px 32px rgba(0,0,0,0.22)' }}
       >
         {/* Drag handle */}
-        <div className={`w-10 h-1 ${dark ? 'bg-dark-700' : 'bg-gray-300'} rounded-full mx-auto mt-3 mb-0`} />
+        <div className={`w-10 h-1 ${dark ? 'bg-dark-700' : 'bg-gray-300'} rounded-full mx-auto mt-3`} />
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(60vh - 16px)' }}>
-          <div className="px-5 pt-4 pb-8">
+        {/* Scrollable inner content */}
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(60vh - 20px)' }}>
+          <div className="px-5 pt-3 pb-8">
 
-            {/* ── Route inputs ── */}
-            <div className={`${inputRow} border rounded-2xl overflow-hidden mb-3`}>
-              {/* Origin row */}
-              <div className={`flex items-center gap-3 px-4 py-3 border-b ${dark ? 'border-dark-800/50' : 'border-gray-100'}`}>
-                <div className="relative flex-shrink-0">
-                  <div className="w-2.5 h-2.5 rounded-full bg-zippi-400" />
-                  <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-zippi-400 animate-ping opacity-40" />
+            {/* Route inputs card */}
+            <div className={`${inpRow} border rounded-2xl overflow-hidden mb-3`}>
+
+              {/* Origin */}
+              <div className={`flex items-center gap-3 px-4 py-3 border-b ${divClr}`}>
+                <div className="relative flex-shrink-0 w-3 h-3">
+                  <div className="absolute inset-0 rounded-full bg-zippi-400" />
+                  <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-40" />
                 </div>
                 <p className={`text-sm ${muted} truncate flex-1`}>{originLabel}</p>
-                <Crosshair size={13} className="text-zippi-400 flex-shrink-0 opacity-60" />
+                <Crosshair size={12} className="text-zippi-400 flex-shrink-0 opacity-50" />
               </div>
 
-              {/* Destination rows */}
+              {/* Destinations */}
               {destinations.map((dest, i) => (
                 <div
                   key={i}
                   className={`flex items-center gap-3 px-4 py-3 ${
-                    i < destinations.length - 1
-                      ? `border-b ${dark ? 'border-dark-800/40' : 'border-gray-100'}`
-                      : ''
+                    i < destinations.length - 1 ? `border-b ${divClr}` : ''
                   }`}
                 >
-                  <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${
+                  <div className={`w-3 h-3 rounded-sm flex-shrink-0 ${
                     i === destinations.length - 1 ? 'bg-red-400' : 'bg-orange-400'
                   }`} />
                   <input
@@ -343,9 +317,7 @@ export default function Home() {
                     onFocus={() => { setActiveDestIdx(i); setFocus(true) }}
                     onBlur={() => setTimeout(() => setFocus(false), 150)}
                     className={`flex-1 bg-transparent text-sm font-medium outline-none ${
-                      dest.lat
-                        ? text
-                        : muted
+                      dest.lat ? text : muted
                     }`}
                   />
                   {dest.lat ? (
@@ -353,31 +325,26 @@ export default function Home() {
                       <X size={14} className={`${muted} opacity-60`} />
                     </button>
                   ) : (
-                    <button
-                      onClick={() => setMapClickMode(true)}
-                      className="flex items-center gap-1"
-                    >
+                    <button onClick={() => setMapClickMode(true)} className="flex-shrink-0">
                       <span className="text-xs text-zippi-400 font-semibold">📍 Mapa</span>
                     </button>
                   )}
                 </div>
               ))}
 
-              {/* Add destination */}
+              {/* Add stop */}
               {destinations.length < 3 && (
                 <button
                   onClick={addDestination}
-                  className={`w-full flex items-center gap-2 px-4 py-2.5 border-t ${
-                    dark ? 'border-dark-800' : 'border-gray-100'
-                  }`}
+                  className={`w-full flex items-center gap-2 px-4 py-2.5 border-t ${divClr}`}
                 >
-                  <Plus size={14} className="text-zippi-400" />
+                  <Plus size={13} className="text-zippi-400" />
                   <span className="text-xs text-zippi-400 font-semibold">Adicionar parada</span>
                 </button>
               )}
             </div>
 
-            {/* ── Search results dropdown ── */}
+            {/* Search results */}
             {focus && results.length > 0 && (
               <div className={`${dark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'} border rounded-2xl mb-3 overflow-hidden shadow-xl`}>
                 {results.map((r, i) => (
@@ -385,7 +352,7 @@ export default function Home() {
                     key={i}
                     onMouseDown={() => selectPlace(r)}
                     className={`w-full flex items-start gap-3 px-4 py-3 text-left ${
-                      i > 0 ? `border-t ${dark ? 'border-dark-800' : 'border-gray-100'}` : ''
+                      i > 0 ? `border-t ${divClr}` : ''
                     } ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'}`}
                   >
                     <span className="text-base flex-shrink-0 mt-0.5">📍</span>
@@ -395,10 +362,9 @@ export default function Home() {
               </div>
             )}
 
-            {/* ── Saved places + recent (when not searching) ── */}
+            {/* Saved + recent */}
             {!focus && (
               <>
-                {/* Saved */}
                 <div className="flex gap-2 mb-4">
                   {SAVED.map(s => (
                     <button
@@ -414,7 +380,6 @@ export default function Home() {
                   ))}
                 </div>
 
-                {/* Recent */}
                 <p className={`text-[10px] ${muted} font-bold uppercase tracking-widest mb-2`}>Recentes</p>
                 <div className="flex flex-col">
                   {RECENT.map(r => (
@@ -436,23 +401,21 @@ export default function Home() {
               </>
             )}
 
-            {/* ── Go button ── */}
+            {/* Go button */}
             {hasValidDest && (
               <button
                 onClick={startNavigation}
                 className="w-full mt-4 py-4 rounded-2xl bg-zippi-400 text-dark-950 font-black text-base flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-zippi-900/30"
               >
                 <Search size={18} />
-                {routeData
-                  ? `Ver opções — ${routeData.distanceKm} km`
-                  : 'Ver melhores opções'}
+                {routeData ? `Ver opções — ${routeData.distanceKm} km` : 'Ver melhores opções'}
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── MODALS ──────────────────────────────────────────── */}
+      {/* ── MODALS ──────────────────────────────────────────────── */}
       {showReportModal && (
         <CommunityModal
           lat={reportCoords?.lat}
@@ -461,7 +424,6 @@ export default function Home() {
           onAdded={() => setReports(getReports())}
         />
       )}
-
       {showVoice && (
         <VoiceAssistant
           onResult={handleVoiceResult}

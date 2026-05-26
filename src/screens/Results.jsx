@@ -19,7 +19,8 @@ export default function Results() {
   const { state }  = useLocation()
   const navigate   = useNavigate()
   const { dark }   = useTheme()
-  const [filter, setFilter]     = useState('balanced')
+  // Use voice assistant preference if provided, else balanced
+  const [filter, setFilter]     = useState(state?.preferredFilter ?? 'balanced')
   const [selected, setSelected] = useState(null)
 
   const km      = state?.distanceKm ?? 2.4

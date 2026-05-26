@@ -6,10 +6,15 @@ export default function MultiVehicleCard({ combo, rank, origin, dest }) {
   const { dark } = useTheme()
   const isBest = rank === 0
 
-  const bg     = dark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'
-  const text   = dark ? 'text-white'                  : 'text-gray-900'
-  const muted  = dark ? 'text-dark-400'               : 'text-gray-500'
-  const divClr = dark ? 'border-dark-800'             : 'border-gray-100'
+  const bg    = dark ? 'bg-dark-900 border-dark-800'  : 'bg-white border-gray-200'
+  const text  = dark ? 'text-white'                    : 'text-gray-900'
+  const muted = dark ? 'text-dark-400'                 : 'text-gray-500'
+  const divClr= dark ? 'border-dark-800'               : 'border-gray-100'
+  const btn   = dark
+    ? 'bg-dark-800 border border-dark-700 text-white'
+    : 'bg-gray-100 border border-gray-200 text-gray-800'
+  const arrowBg = dark ? 'bg-dark-800' : 'bg-gray-100'
+  const arrowTxt= dark ? 'text-dark-500' : 'text-gray-400'
 
   return (
     <div className={`rounded-3xl border overflow-hidden ${bg} ${isBest ? '!border-zippi-400/50' : ''}`}>
@@ -22,6 +27,7 @@ export default function MultiVehicleCard({ combo, rank, origin, dest }) {
       <div className="p-4">
         {/* Vehicles row */}
         <div className="flex items-center gap-2 mb-3">
+
           {/* Vehicle 1 */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div
@@ -38,10 +44,10 @@ export default function MultiVehicleCard({ combo, rank, origin, dest }) {
 
           {/* Arrow */}
           <div className="flex flex-col items-center flex-shrink-0">
-            <div className="w-6 h-6 rounded-full bg-dark-800 flex items-center justify-center">
+            <div className={`w-6 h-6 rounded-full ${arrowBg} flex items-center justify-center`}>
               <ChevronRight size={12} className="text-zippi-400" />
             </div>
-            <p className="text-xs text-dark-600 mt-0.5">troca</p>
+            <p className={`text-xs ${arrowTxt} mt-0.5`}>troca</p>
           </div>
 
           {/* Vehicle 2 */}
@@ -68,7 +74,7 @@ export default function MultiVehicleCard({ combo, rank, origin, dest }) {
         </div>
 
         {/* Metrics */}
-        <div className={`flex items-center gap-3 pt-3 border-t ${divClr}`}>
+        <div className={`flex items-center gap-3 pt-3 border-t ${divClr} flex-wrap`}>
           {combo.co2Saved > 0 && (
             <span className="text-xs text-zippi-400 font-medium">
               🌿 -{combo.co2Saved.toFixed(2)} kg CO₂
@@ -85,14 +91,14 @@ export default function MultiVehicleCard({ combo, rank, origin, dest }) {
         {/* CTA buttons */}
         <div className="flex gap-2 mt-3">
           <button
-            onClick={() => openService(combo.vehicle1.id, origin, { ...dest, label: dest?.label })}
-            className="flex-1 py-2.5 rounded-xl bg-dark-800 border border-dark-700 text-xs font-bold text-white active:scale-95 transition-transform"
+            onClick={() => openService(combo.vehicle1.id, origin, dest)}
+            className={`flex-1 py-2.5 rounded-xl ${btn} text-xs font-bold active:scale-95 transition-transform`}
           >
             Abrir {combo.vehicle1.name} →
           </button>
           <button
-            onClick={() => openService(combo.vehicle2.id, origin, { ...dest, label: dest?.label })}
-            className="flex-1 py-2.5 rounded-xl bg-dark-800 border border-dark-700 text-xs font-bold text-white active:scale-95 transition-transform"
+            onClick={() => openService(combo.vehicle2.id, origin, dest)}
+            className={`flex-1 py-2.5 rounded-xl ${btn} text-xs font-bold active:scale-95 transition-transform`}
           >
             Abrir {combo.vehicle2.name} →
           </button>

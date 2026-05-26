@@ -155,7 +155,8 @@ export default function ZippiMap({
     tileLayerRef.current = tileLayer
 
     // Zoom control — positioned to not overlap bottom sheet
-    L.control.zoom({ position: 'bottomright' }).addTo(map)
+    // topright keeps zoom buttons in the visible map strip, above the bottom sheet
+    L.control.zoom({ position: 'topright' }).addTo(map)
 
     // Minimal attribution
     L.control.attribution({ position: 'bottomleft', prefix: false })
