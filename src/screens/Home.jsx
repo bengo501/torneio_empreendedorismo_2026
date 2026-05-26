@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Crosshair, History, Plus, X, TriangleAlert, Sun, Moon, Mic, UserCircle } from 'lucide-react'
+import { Search, Crosshair, Plus, X, TriangleAlert, Sun, Moon, Mic } from 'lucide-react'
 import ZippiMap        from '../components/ZippiMap.jsx'
 import CommunityModal  from '../components/CommunityModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
@@ -216,21 +216,22 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — máx 4 para caber em qualquer tela */}
           <div className="flex gap-1.5 flex-shrink-0">
-            <button onClick={detectGPS} className={pill} title="Minha localização">
+            <button onClick={detectGPS} className={pill} title="Atualizar localização">
               <Crosshair size={16} className={gpsLoading ? 'text-zippi-400 animate-spin' : 'text-white'} />
             </button>
-            <button onClick={toggle} className={pill} title="Tema">
+            <button onClick={toggle} className={pill} title="Alternar tema">
               {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-slate-200" />}
             </button>
-            <button onClick={() => { setReportCoords(origin); setShowReportModal(true) }} className={pill} title="Reportar">
+            <button
+              onClick={() => { setReportCoords(origin); setShowReportModal(true) }}
+              className={pill}
+              title="Reportar ocorrência"
+            >
               <TriangleAlert size={16} className="text-orange-400" />
             </button>
-            <button onClick={() => navigate('/history')} className={pill} title="Histórico">
-              <History size={16} className="text-white" />
-            </button>
-            {/* Profile avatar */}
+            {/* Avatar de perfil — substituiu History no top bar */}
             <button
               onClick={() => navigate('/profile')}
               className="w-10 h-10 rounded-2xl bg-zippi-400 flex items-center justify-center active:scale-90 transition-transform shadow-md shadow-zippi-900/40"
