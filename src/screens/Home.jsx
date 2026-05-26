@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Crosshair, History, Plus, X, TriangleAlert, Sun, Moon, Mic } from 'lucide-react'
+import { Search, Crosshair, History, Plus, X, TriangleAlert, Sun, Moon, Mic, UserCircle } from 'lucide-react'
 import ZippiMap        from '../components/ZippiMap.jsx'
 import CommunityModal  from '../components/CommunityModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
@@ -229,6 +229,14 @@ export default function Home() {
             </button>
             <button onClick={() => navigate('/history')} className={pill} title="Histórico">
               <History size={16} className="text-white" />
+            </button>
+            {/* Profile avatar */}
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-10 h-10 rounded-2xl bg-zippi-400 flex items-center justify-center active:scale-90 transition-transform shadow-md shadow-zippi-900/40"
+              title="Meu perfil"
+            >
+              <span className="text-[11px] font-black text-dark-950 leading-none select-none">JS</span>
             </button>
           </div>
         </div>
