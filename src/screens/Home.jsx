@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Crosshair, Plus, X, TriangleAlert,
-  Sun, Moon, Mic, ArrowLeft, Leaf, ChevronRight,
-  Map, Compass, CalendarDays, User2, Zap, Star,
+  Sun, Moon, Mic, ArrowLeft, ChevronRight,
+  Compass, CalendarDays, User2, Zap,
 } from 'lucide-react'
 import ZippiMap        from '../components/ZippiMap.jsx'
 import CommunityModal  from '../components/CommunityModal.jsx'
