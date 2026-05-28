@@ -13,7 +13,7 @@ export default defineConfig({
         short_name: 'Zippi',
         description: 'Mobilidade urbana inteligente — ODS 10, 11, 13',
         theme_color: '#3DED7A',
-        background_color: '#0A0A0A',
+        background_color: '#F4F5F7',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
@@ -38,10 +38,11 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Cache de assets estáticos (JS, CSS, fontes)
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Não faz cache de chamadas de API externa (GPS, mapas, rotas)
-        navigateFallback: '/index.html',
+        // Apenas assets com hash no nome (JS, CSS, fontes, ícones) — NUNCA html.
+        // O index.html NÃO entra no precache; o browser sempre busca a versão
+        // mais recente na rede, evitando que o SW sirva HTML desatualizado.
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
