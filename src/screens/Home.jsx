@@ -358,11 +358,13 @@ export default function Home() {
   const insight = useMemo(() => getContextualInsight(hour, weather, dayOfWeek, origin), [hour, weather, dayOfWeek])
 
   // Glass UI style vars
-  const GLASS_BG     = dark ? 'rgba(10,10,14,0.86)'    : 'rgba(248,248,252,0.91)'
-  const GLASS_BLUR   = 'blur(28px) saturate(180%)'
-  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'
-  const CARD_BG      = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
-  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.07)'
+  // Dark: uses a mid-dark tone so it reads clearly even if backdrop-filter
+  // (blur) doesn't fire (Firefox fallback = solid surface, not invisible black)
+  const GLASS_BG     = dark ? 'rgba(22,22,30,0.94)'   : 'rgba(248,248,252,0.93)'
+  const GLASS_BLUR   = 'blur(24px) saturate(160%)'
+  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'
+  const CARD_BG      = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'
+  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)'
 
   // Text class helpers
   const text  = dark ? 'text-white'    : 'text-gray-900'
@@ -378,7 +380,7 @@ export default function Home() {
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#080810' : '#e8eaf0' }}
+      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#111118' : '#e8eaf0' }}
     >
       {/* ── MAP ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0" style={{ isolation:'isolate' }}>
@@ -523,7 +525,7 @@ export default function Home() {
           onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}
           onMouseDown={onDragStart}  onMouseMove={onDragMove}  onMouseUp={onDragEnd} onMouseLeave={onDragEnd}
         >
-          <div className="w-10 h-1 rounded-full" style={{ background: dark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }} />
+          <div className="w-10 h-1 rounded-full" style={{ background: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.18)' }} />
         </div>
 
         {/* ── Contextual greeting (shown in Ir/search mode) ─────── */}
