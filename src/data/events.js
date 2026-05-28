@@ -1,0 +1,141 @@
+/**
+ * Simulated events data for Porto Alegre.
+ * In production: integrate with Sympla, prefeitura, cultura.rs.gov.br
+ */
+
+export const EVENT_CATS = [
+  { id: 'todos',       label: 'Todos',       emoji: '🗓️' },
+  { id: 'musica',      label: 'Música',      emoji: '🎵' },
+  { id: 'cultura',     label: 'Cultura',     emoji: '🎭' },
+  { id: 'feira',       label: 'Feiras',      emoji: '🛍️' },
+  { id: 'gastronomia', label: 'Gastro',      emoji: '🍽️' },
+  { id: 'esporte',     label: 'Esporte',     emoji: '🏃' },
+  { id: 'gratuito',    label: 'Grátis',      emoji: '💚' },
+]
+
+export const EVENTS_TODAY = [
+  {
+    id: 1, emoji: '🎵',
+    title: 'Show: Orquestra da OSPA',
+    local: 'Usina do Gasômetro',
+    bairro: 'Centro Histórico',
+    time: '19h30', price: 'Grátis', cat: 'musica',
+    lat: -30.0340, lon: -51.2426,
+    desc: 'Concerto gratuito ao ar livre com a Orquestra Sinfônica de Porto Alegre.',
+    highlight: true,
+  },
+  {
+    id: 2, emoji: '🛍️',
+    title: 'Feira Orgânica do Bom Fim',
+    local: 'Rua Jandaia s/n',
+    bairro: 'Bom Fim',
+    time: 'sáb · até 14h', price: 'Grátis', cat: 'feira',
+    lat: -30.0330, lon: -51.2033,
+    desc: 'Produtos orgânicos, artesanato local e gastronomia da agricultura familiar.',
+  },
+  {
+    id: 3, emoji: '🎨',
+    title: 'Exposição: Arte Urbana Sul',
+    local: 'MARGS',
+    bairro: 'Centro',
+    time: 'até 18h', price: 'Grátis', cat: 'cultura',
+    lat: -30.0312, lon: -51.2264,
+    desc: 'Mostra coletiva de artistas urbanos do Sul do Brasil.',
+  },
+  {
+    id: 4, emoji: '🏃',
+    title: 'Corrida da Redenção',
+    local: 'Parque da Redenção',
+    bairro: 'Bom Fim',
+    time: 'dom · 8h', price: 'Grátis', cat: 'esporte',
+    lat: -30.0355, lon: -51.2071,
+    desc: 'Corrida comunitária com percursos de 5km e 10km. Aberta para todos.',
+  },
+  {
+    id: 5, emoji: '🍷',
+    title: 'Festival Gastronômico POA',
+    local: 'Mercado Público',
+    bairro: 'Centro Histórico',
+    time: '12h – 22h', price: 'Entrada livre', cat: 'gastronomia',
+    lat: -30.0278, lon: -51.2258,
+    desc: 'Gastronomia regional, cervejas artesanais e vinhos da Serra Gaúcha.',
+  },
+  {
+    id: 6, emoji: '🎭',
+    title: 'Teatro: O Pequeno Príncipe',
+    local: 'Teatro São Pedro',
+    bairro: 'Centro',
+    time: '15h e 19h', price: 'R$ 20 – 40', cat: 'cultura',
+    lat: -30.0299, lon: -51.2274,
+    desc: 'Espetáculo infantojuvenil com cenografia imersiva.',
+  },
+  {
+    id: 7, emoji: '🎬',
+    title: 'Cine ao Ar Livre',
+    local: 'Parque da Redenção',
+    bairro: 'Bom Fim',
+    time: '20h30', price: 'Grátis', cat: 'cultura',
+    lat: -30.0360, lon: -51.2060,
+    desc: 'Sessão gratuita de cinema no parque. Traga uma manta!',
+    highlight: true,
+  },
+  {
+    id: 8, emoji: '🎸',
+    title: 'Noite do Rock — Cidade Baixa',
+    local: 'Av. Cidade Baixa',
+    bairro: 'Cidade Baixa',
+    time: '21h', price: 'R$ 15', cat: 'musica',
+    lat: -30.0400, lon: -51.2080,
+    desc: 'Palco aberto para bandas locais de rock gaúcho.',
+  },
+  {
+    id: 9, emoji: '☕',
+    title: 'Coffee & Design Meeting',
+    local: 'Floresta Creative Hub',
+    bairro: 'Floresta',
+    time: '14h', price: 'Grátis', cat: 'cultura',
+    lat: -30.0190, lon: -51.2153,
+    desc: 'Encontro mensal da comunidade criativa de Porto Alegre.',
+  },
+]
+
+/** Gramado seasonal events */
+export const EVENTS_GRAMADO = [
+  {
+    id: 'g1', emoji: '🎄',
+    title: 'Natal Luz de Gramado',
+    local: 'Centro de Gramado',
+    bairro: 'Gramado',
+    time: 'nov – jan · todas as noites', price: 'Grátis (shows especiais pagos)', cat: 'cultura',
+    lat: -29.3765, lon: -50.8733,
+    desc: 'Maior festa de Natal do Brasil com iluminação e shows gratuitos.',
+    highlight: true,
+  },
+  {
+    id: 'g2', emoji: '🍫',
+    title: 'Festival do Chocolate',
+    local: 'Rua Coberta',
+    bairro: 'Gramado',
+    time: 'abr – mai · diário', price: 'Grátis (degustações pagas)', cat: 'gastronomia',
+    lat: -29.3748, lon: -50.8695,
+    desc: 'Festival internacional com artesãos chocolateiros e degustações.',
+  },
+  {
+    id: 'g3', emoji: '🐣',
+    title: 'Páscoa em Gramado',
+    local: 'Centro de Gramado',
+    bairro: 'Gramado',
+    time: 'mar – abr · diário', price: 'Grátis', cat: 'cultura',
+    lat: -29.3760, lon: -50.8720,
+    desc: 'Decoração especial e eventos temáticos em toda a cidade.',
+  },
+  {
+    id: 'g4', emoji: '🎬',
+    title: 'Festival de Cinema de Gramado',
+    local: 'Palácio dos Festivais',
+    bairro: 'Gramado',
+    time: 'ago · 10 dias', price: 'R$ 20 – 60', cat: 'cultura',
+    lat: -29.3772, lon: -50.8741,
+    desc: 'O mais tradicional festival de cinema da América Latina.',
+  },
+]

@@ -137,6 +137,18 @@ export const EXPLORE_PLACES = [
   },
 ]
 
+/** Gramado curated experiences */
+export const EXPLORE_GRAMADO = [
+  { id: 'lago_negro',  name: 'Lago Negro',             category: 'parques',     lat: -29.3785, lon: -50.8680, desc: 'Cartão postal de Gramado — cisnes e natureza', freeAccess: true },
+  { id: 'mini_mundo',  name: 'Mini Mundo',              category: 'cultura',     lat: -29.3723, lon: -50.8623, desc: 'O menor mundo em escala do Brasil', freeAccess: false },
+  { id: 'dreamland',   name: 'Dreamland',               category: 'cultura',     lat: -29.3700, lon: -50.8619, desc: 'Museu de cera, ilusão e terror', freeAccess: false },
+  { id: 'lugano',      name: 'Chocolates Lugano',        category: 'gastronomia', lat: -29.3734, lon: -50.8677, desc: 'Loja símbolo da chocolateria gaúcha', freeAccess: true },
+  { id: 'fenac',       name: 'Parque da Fenac',          category: 'parques',     lat: -29.3800, lon: -50.8750, desc: 'Parque temático de animação europeia', freeAccess: false },
+  { id: 'rota_vinho',  name: 'Rota do Vinho',           category: 'gastronomia', lat: -29.1700, lon: -51.5200, desc: 'Vinícolas e degustações na Serra Gaúcha', freeAccess: false },
+  { id: 'canela',      name: 'Catedral de Pedra — Canela', category: 'cultura',  lat: -29.3618, lon: -50.8134, desc: 'Construção histórica de basalto vulcânico', freeAccess: true },
+  { id: 'parque_knorr',name: 'Parque Knorr',            category: 'parques',     lat: -29.3641, lon: -50.8155, desc: 'Cascata do Caracol e natureza exuberante', freeAccess: false },
+]
+
 /** ODS impact mapped to transport category */
 export const ODS_IMPACT = {
   patinete:  { code: 11, label: 'Cidades sustentáveis',      color: '#FF6700' },
