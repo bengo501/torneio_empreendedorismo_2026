@@ -357,14 +357,14 @@ export default function Home() {
   // Contextual AI insight
   const insight = useMemo(() => getContextualInsight(hour, weather, dayOfWeek, origin), [hour, weather, dayOfWeek])
 
-  // Glass UI style vars
-  // Dark: uses a mid-dark tone so it reads clearly even if backdrop-filter
-  // (blur) doesn't fire (Firefox fallback = solid surface, not invisible black)
-  const GLASS_BG     = dark ? 'rgba(22,22,30,0.94)'   : 'rgba(248,248,252,0.93)'
-  const GLASS_BLUR   = 'blur(24px) saturate(160%)'
-  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'
-  const CARD_BG      = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)'
-  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)'
+  // Surface system:
+  // Dark  → solid surfaces (no transparency) so dark map + dark glass ≠ black void
+  // Light → glass (backdrop-blur) for iOS aesthetic
+  const GLASS_BG     = dark ? '#1C1C28'              : 'rgba(248,248,252,0.93)'
+  const GLASS_BLUR   = dark ? 'none'                 : 'blur(24px) saturate(160%)'
+  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'
+  const CARD_BG      = dark ? '#252535'              : 'rgba(0,0,0,0.04)'
+  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
 
   // Text class helpers
   const text  = dark ? 'text-white'    : 'text-gray-900'
@@ -380,7 +380,7 @@ export default function Home() {
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#111118' : '#e8eaf0' }}
+      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#12121E' : '#e8eaf0' }}
     >
       {/* ── MAP ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0" style={{ isolation:'isolate' }}>
