@@ -18,7 +18,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.error) {
       return (
         <div style={{
-          position:'fixed', inset:0, background:'#0A0A0A',
+          position:'fixed', inset:0, background:'#1A1B2E',
           display:'flex', flexDirection:'column', alignItems:'center',
           justifyContent:'center', padding:24, fontFamily:'Inter,sans-serif',
         }}>

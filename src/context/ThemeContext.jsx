@@ -5,7 +5,9 @@ const ThemeContext = createContext()
 export function ThemeProvider({ children }) {
   const [dark, setDark] = useState(() => {
     const saved = localStorage.getItem('zippi-theme')
-    return saved !== null ? saved === 'dark' : true // default dark
+    // Default: follow the OS/browser preference; fall back to light
+    if (saved !== null) return saved === 'dark'
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false
   })
 
   useEffect(() => {

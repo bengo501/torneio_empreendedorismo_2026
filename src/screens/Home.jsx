@@ -358,13 +358,13 @@ export default function Home() {
   const insight = useMemo(() => getContextualInsight(hour, weather, dayOfWeek, origin), [hour, weather, dayOfWeek])
 
   // Surface system:
-  // Dark  → solid surfaces (no transparency) so dark map + dark glass ≠ black void
+  // Dark  → solid surfaces with meaningful contrast (dark-indigo family, not near-black)
   // Light → glass (backdrop-blur) for iOS aesthetic
-  const GLASS_BG     = dark ? '#1C1C28'              : 'rgba(248,248,252,0.93)'
+  const GLASS_BG     = dark ? '#23243A'              : 'rgba(248,248,252,0.93)'
   const GLASS_BLUR   = dark ? 'none'                 : 'blur(24px) saturate(160%)'
-  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'
-  const CARD_BG      = dark ? '#252535'              : 'rgba(0,0,0,0.04)'
-  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
+  const GLASS_BORDER = dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)'
+  const CARD_BG      = dark ? '#2E2F4A'              : 'rgba(0,0,0,0.04)'
+  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)'
 
   // Text class helpers
   const text  = dark ? 'text-white'    : 'text-gray-900'
@@ -380,7 +380,7 @@ export default function Home() {
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#12121E' : '#e8eaf0' }}
+      style={{ height:'100dvh', minHeight:'-webkit-fill-available', background: dark ? '#14152B' : '#e8eaf0' }}
     >
       {/* ── MAP ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0" style={{ isolation:'isolate' }}>
