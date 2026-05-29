@@ -11,7 +11,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-const GREEN = '#3DED7A'
+const GREEN = '#34C759'
+const GREEN_DARK = '#2DB84A'
 const RED   = '#FF4444'
 
 function getTileUrl(dark) {
@@ -27,10 +28,19 @@ function makeIcon(emoji, color = GREEN, size = 34) {
   })
 }
 
-function makePulseIcon() {
+/** pin 3d verde: esfera + cone, pulsante */
+function makeUserPinIcon() {
   return L.divIcon({
-    html: `<div style="position:relative;width:28px;height:28px"><div style="position:absolute;inset:0;border-radius:50%;background:${GREEN};opacity:0.25;animation:zippiPulse 1.8s ease-out infinite"></div><div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:${GREEN};border:3px solid white;box-shadow:0 0 14px ${GREEN}99"></div><div style="position:absolute;top:9px;left:9px;width:10px;height:10px;border-radius:50%;background:white"></div></div>`,
-    className:'', iconSize:[28,28], iconAnchor:[14,14],
+    html: `<div class="zippi-user-pin" style="position:relative;width:36px;height:48px">
+      <div class="zippi-user-pulse" style="position:absolute;left:50%;bottom:2px;width:28px;height:28px;margin-left:-14px;border-radius:50%;background:${GREEN};opacity:0.35"></div>
+      <div style="position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:16px solid ${GREEN_DARK};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35))"></div>
+      <div style="position:absolute;left:50%;top:2px;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:linear-gradient(145deg,#5AE88A 0%,${GREEN} 45%,${GREEN_DARK} 100%);border:2.5px solid rgba(255,255,255,0.95);box-shadow:0 2px 10px rgba(52,199,89,0.55),inset 0 -2px 4px rgba(0,0,0,0.15)"></div>
+      <div style="position:absolute;left:50%;top:5px;transform:translateX(-50%);width:8px;height:5px;border-radius:50%;background:rgba(255,255,255,0.55)"></div>
+    </div>`,
+    className: '',
+    iconSize: [36, 48],
+    iconAnchor: [18, 48],
+    popupAnchor: [0, -48],
   })
 }
 
@@ -56,16 +66,19 @@ function makePlacePinIcon(emoji, label, color) {
 const ZippiMap = memo(forwardRef(function ZippiMap({
   origin, destinations, routePolyline, communityReports,
   placePins = [], trafficSegments = [], showTraffic = false,
-  onMapClick, onPlacePinClick, dark, className = '',
+  natureFeatures = [],
+  onMapClick, onPlacePinClick, onBoundsChange, dark, className = '',
 }, ref) {
   const containerRef = useRef(null)
   const mapRef       = useRef(null)
   const tileLayerRef = useRef(null)
-  const layersRef    = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[] })
+  const layersRef    = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[], nature:[] })
   const darkRef      = useRef(dark)
   const onPinRef     = useRef(onPlacePinClick)
+  const onBoundsRef  = useRef(onBoundsChange)
   useEffect(() => { darkRef.current = dark }, [dark])
   useEffect(() => { onPinRef.current = onPlacePinClick }, [onPlacePinClick])
+  useEffect(() => { onBoundsRef.current = onBoundsChange }, [onBoundsChange])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -74,7 +87,10 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       const s = document.createElement('style')
       s.id = 'zippi-map-css'
       s.textContent = `
-        @keyframes zippiPulse{0%{transform:scale(1);opacity:.35}70%{transform:scale(2.8);opacity:0}100%{transform:scale(2.8);opacity:0}}
+        @keyframes zippiUserPulse{0%{transform:scale(0.6);opacity:.45}70%{transform:scale(2.2);opacity:0}100%{transform:scale(2.2);opacity:0}}
+        @keyframes zippiUserBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-2px)}}
+        .zippi-user-pulse{animation:zippiUserPulse 1.8s ease-out infinite}
+        .zippi-user-pin > div:nth-child(3){animation:zippiUserBob 2.4s ease-in-out infinite}
         .leaflet-container{font-family:Inter,system-ui,sans-serif;z-index:0!important}
         .leaflet-pane{z-index:1!important}
         .leaflet-tile-pane{z-index:1!important}
@@ -99,6 +115,19 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       .addAttribution('© <a href="https://carto.com">CARTO</a> © <a href="https://osm.org">OSM</a>')
       .addTo(map)
     map.on('click', e => onMapClick?.(e.latlng.lat, e.latlng.lng))
+
+    const emitBounds = () => {
+      const b = map.getBounds()
+      onBoundsRef.current?.({
+        south: b.getSouth(),
+        west: b.getWest(),
+        north: b.getNorth(),
+        east: b.getEast(),
+      })
+    }
+    map.on('moveend', emitBounds)
+    map.whenReady(emitBounds)
+
     mapRef.current = map
 
     return () => {
@@ -115,7 +144,7 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     tileLayerRef.current?.setUrl(getTileUrl(dark))
   }, [dark])
 
-  /* trânsito — abaixo dos marcadores */
+  /* trânsito */
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -127,17 +156,43 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
 
     trafficSegments.forEach(seg => {
       if (!seg.path?.length) return
-      const op = seg.opacity ?? 0.3
       const line = L.polyline(seg.path, {
         color: seg.color,
         weight: seg.weight ?? 3,
-        opacity: op,
+        opacity: seg.opacity ?? 0.3,
         lineCap: 'round',
         lineJoin: 'round',
+        smoothFactor: 1.5,
       }).addTo(map)
       L_.traffic.push(line)
     })
   }, [showTraffic, trafficSegments])
+
+  /* parques e água (osm) */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const L_ = layersRef.current
+    L_.nature.forEach(p => map.removeLayer(p))
+    L_.nature = []
+
+    natureFeatures?.forEach(f => {
+      if (!f.path?.length) return
+      const isWater = f.kind === 'water'
+      const layer = L.polygon(f.path, {
+        color: isWater ? 'rgba(64, 156, 255, 0.55)' : 'rgba(52, 199, 89, 0.5)',
+        fillColor: isWater ? 'rgba(64, 156, 255, 0.22)' : 'rgba(52, 199, 89, 0.18)',
+        fillOpacity: 1,
+        weight: 1.5,
+        opacity: 0.7,
+      })
+      if (f.name) {
+        layer.bindTooltip(f.name, { permanent: false, direction: 'top', className: 'zippi-nature-tip' })
+      }
+      layer.addTo(map)
+      L_.nature.push(layer)
+    })
+  }, [natureFeatures])
 
   /* origem, destino, rota */
   useEffect(() => {
@@ -152,31 +207,31 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
 
     if (origin) {
-      const m = L.marker([origin.lat, origin.lon], { icon:makePulseIcon(), zIndexOffset:100 })
-        .bindPopup(`<b>📍 Você está aqui</b><br><small>${origin.label??''}</small>`, { className:pc })
+      const m = L.marker([origin.lat, origin.lon], { icon: makeUserPinIcon(), zIndexOffset: 100 })
+        .bindPopup(`<b>você está aqui</b><br><small>${origin.label ?? ''}</small>`, { className: pc })
         .addTo(map)
       L_.markers.push(m)
     }
 
     destinations?.forEach((d, i) => {
       if (!d?.lat) return
-      const m = L.marker([d.lat, d.lon], { icon:makeDestIcon(d.label ?? `Destino ${i+1}`) })
-        .bindPopup(`<b>🎯 ${d.label ?? `Destino ${i+1}`}</b>`, { className:pc })
+      const m = L.marker([d.lat, d.lon], { icon: makeDestIcon(d.label ?? `Destino ${i+1}`) })
+        .bindPopup(`<b>🎯 ${d.label ?? `Destino ${i+1}`}</b>`, { className: pc })
         .addTo(map)
       L_.markers.push(m)
     })
 
     if (routePolyline?.length > 1) {
-      const outline = L.polyline(routePolyline, { color:'#ffffff', weight:9, opacity:0.3, lineCap:'round', lineJoin:'round' }).addTo(map)
-      const line    = L.polyline(routePolyline, { color:GREEN, weight:5, opacity:0.9, lineCap:'round', lineJoin:'round' }).addTo(map)
+      const outline = L.polyline(routePolyline, { color:'#ffffff', weight:9, opacity:0.3, lineCap:'round', lineJoin:'round', smoothFactor: 1.5 }).addTo(map)
+      const line    = L.polyline(routePolyline, { color:GREEN, weight:5, opacity:0.9, lineCap:'round', lineJoin:'round', smoothFactor: 1.5 }).addTo(map)
       L_.routeLines.push(outline, line)
-      if (!placePins?.length) map.fitBounds(line.getBounds(), { padding:[100, 60] })
-    } else if (origin && !placePins?.length) {
-      map.setView([origin.lat, origin.lon], 15)
+      map.fitBounds(line.getBounds(), { padding:[100, 60] })
+    } else if (origin && !routePolyline?.length) {
+      map.setView([origin.lat, origin.lon], map.getZoom() || 15)
     }
-  }, [origin, destinations, routePolyline, placePins?.length])
+  }, [origin, destinations, routePolyline])
 
-  /* pins explorar / hoje */
+  /* pins explorar / hoje — sempre visíveis, sem auto-fit */
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -187,7 +242,6 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     if (!placePins?.length) return
 
     const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
-    const bounds = []
 
     placePins.forEach(pin => {
       if (!pin.lat || !pin.lon) return
@@ -201,14 +255,7 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
         .on('click', () => onPinRef.current?.(pin))
         .addTo(map)
       L_.placePins.push(m)
-      bounds.push([pin.lat, pin.lon])
     })
-
-    if (bounds.length > 1) {
-      map.fitBounds(bounds, { padding:[90, 50], maxZoom: 14 })
-    } else if (bounds.length === 1) {
-      map.setView(bounds[0], 14)
-    }
   }, [placePins])
 
   /* relatórios comunidade */
@@ -231,6 +278,11 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
   useImperativeHandle(ref, () => ({
     flyTo(lat, lon, zoom = 15) {
       mapRef.current?.setView([lat, lon], zoom, { animate: true })
+    },
+    getBounds() {
+      const b = mapRef.current?.getBounds()
+      if (!b) return null
+      return { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() }
     },
   }))
 

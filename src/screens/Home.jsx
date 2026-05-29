@@ -5,8 +5,10 @@ import {
   Sun, Moon, Mic, ArrowLeft, ChevronRight,
   Compass, CalendarDays, User2, Zap, Sparkles,
 } from 'lucide-react'
-import ZippiMap        from '../components/ZippiMap.jsx'
-import CommunityModal  from '../components/CommunityModal.jsx'
+import ZippiMap           from '../components/ZippiMap.jsx'
+import NotificationsDock  from '../components/NotificationsDock.jsx'
+import AlertsDock         from '../components/AlertsDock.jsx'
+import CommunityModal     from '../components/CommunityModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
@@ -18,7 +20,8 @@ import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
 import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/explore.js'
 import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
-import { getTrafficSegments, getTrafficSummary } from '../data/traffic.js'
+import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isCriticalTraffic } from '../data/traffic.js'
+import { fetchNatureFeatures } from '../services/overpass.js'
 import { glassSurface, explorePinColor } from '../styles/glass.js'
 
 // ── Constants ────────────────────────────────────────────────────
@@ -93,34 +96,6 @@ function kmBetween(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
-/** barra horizontal de notificações / descobertas */
-function FeedBar({ items, dark, pillStyle }) {
-  if (!items.length) return null
-  return (
-    <div className="mt-2 overflow-x-auto no-scrollbar">
-      <div className="flex gap-2 pb-0.5" style={{ width: 'max-content', minWidth: '100%' }}>
-        {items.map(item => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={item.action}
-            className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-2xl flex-shrink-0 active:scale-[0.97] transition-transform"
-            style={pillStyle}
-          >
-            {item.live && (
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
-            )}
-            <span className="text-sm leading-none">{item.emoji}</span>
-            <span className={`text-[11px] font-semibold whitespace-nowrap max-w-[200px] truncate ${dark ? 'text-white/90' : 'text-gray-800'}`}>
-              {item.text}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Event Card component ─────────────────────────────────────────
 function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
   return (
@@ -171,6 +146,8 @@ export default function Home() {
   const [results, setResults] = useState([])
   const [focus,   setFocus]   = useState(false)
   const searchTimer = useRef(null)
+  const boundsTimer   = useRef(null)
+  const [natureFeatures, setNatureFeatures] = useState([])
 
   /* ── Route ─────────────────────────────────────────────────── */
   const [routeData,    setRouteData]    = useState(null)
@@ -180,6 +157,7 @@ export default function Home() {
   const [reports,         setReports]         = useState([])
   const [showReportModal, setShowReportModal] = useState(false)
   const [reportCoords,    setReportCoords]    = useState(null)
+  const [pinCreationMode, setPinCreationMode] = useState(false)
 
   /* ── Voice ─────────────────────────────────────────────────── */
   const [showVoice, setShowVoice] = useState(false)
@@ -395,7 +373,18 @@ export default function Home() {
         setDestinations(next)
       })
       setMapClickMode(false)
-    } else { setReportCoords({ lat, lon }); setShowReportModal(true) }
+      return
+    }
+    if (pinCreationMode) {
+      setReportCoords({ lat, lon })
+      setShowReportModal(true)
+      setPinCreationMode(false)
+    }
+  }
+
+  function togglePinCreationMode() {
+    setPinCreationMode(v => !v)
+    setMapClickMode(false)
   }
   async function handleVoiceResult({ destination, preference }) {
     setActiveFilter(preference)
@@ -416,114 +405,139 @@ export default function Home() {
   const GLASS_BORDER = dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)'
   const cardStyle    = glassSecondary
 
-  const trafficSegments = useMemo(() => getTrafficSegments(hour, dayOfWeek), [hour, dayOfWeek])
+  const [trafficSegments, setTrafficSegments] = useState(() => getTrafficSegments(hour, dayOfWeek))
   const trafficSummary  = useMemo(() => getTrafficSummary(trafficSegments), [trafficSegments])
   const showTraffic     = activeTab === 'ir' && sheetState === 'search'
+
+  useEffect(() => {
+    setTrafficSegments(getTrafficSegments(hour, dayOfWeek))
+  }, [hour, dayOfWeek])
+
+  const handleMapBoundsChange = useCallback((bbox) => {
+    clearTimeout(boundsTimer.current)
+    boundsTimer.current = setTimeout(async () => {
+      const spanLat = bbox.north - bbox.south
+      const spanLon = bbox.east - bbox.west
+      if (spanLat > 0.12 || spanLon > 0.12) return
+      try {
+        const [segments, nature] = await Promise.all([
+          loadTrafficGeometry(bbox, hour, dayOfWeek),
+          fetchNatureFeatures(bbox),
+        ])
+        setTrafficSegments(segments)
+        setNatureFeatures(nature)
+      } catch { /* mantém dados anteriores */ }
+    }, 500)
+  }, [hour, dayOfWeek])
 
   const eventsFiltered = useMemo(() => (
     (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
       .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
   ), [exploreCity, eventCat])
 
-  const mapPins = useMemo(() => {
-    if (activeTab === 'explorar') {
-      const places = exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES
-      return places
-        .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
-        .map(p => ({
-          id: p.id,
-          lat: p.lat,
-          lon: p.lon,
-          label: p.name,
-          desc: p.desc,
-          emoji: EXPLORE_CATEGORIES.find(c => c.id === p.category)?.emoji ?? '📍',
-          category: p.category,
-          color: explorePinColor(p.category),
-          type: 'explore',
-          place: p,
-        }))
-    }
-    if (activeTab === 'hoje') {
-      return eventsFiltered
-        .filter(e => e.lat)
-        .map(e => ({
-          id: `ev-${e.id}`,
-          lat: e.lat,
-          lon: e.lon,
-          label: e.title,
-          desc: `${e.local} · ${e.time}`,
-          emoji: e.emoji,
-          category: e.cat,
-          color: null,
-          type: 'event',
-          event: e,
-        }))
-    }
-    return []
-  }, [activeTab, exploreCity, exploreCategory, eventsFiltered])
+  const alwaysVisiblePins = useMemo(() => {
+    const places = exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES
+    const events = exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY
+    const explorePins = places.map(p => ({
+      id: p.id,
+      lat: p.lat,
+      lon: p.lon,
+      label: p.name,
+      desc: p.desc,
+      emoji: EXPLORE_CATEGORIES.find(c => c.id === p.category)?.emoji ?? '📍',
+      category: p.category,
+      color: explorePinColor(p.category),
+      type: 'explore',
+      place: p,
+    }))
+    const eventPins = events
+      .filter(e => e.lat)
+      .map(e => ({
+        id: `ev-${e.id}`,
+        lat: e.lat,
+        lon: e.lon,
+        label: e.title,
+        desc: `${e.local} · ${e.time}`,
+        emoji: e.emoji,
+        category: e.cat,
+        color: null,
+        type: 'event',
+        event: e,
+      }))
+    return [...explorePins, ...eventPins]
+  }, [exploreCity])
 
-  const feedItems = useMemo(() => {
+  const notificationItems = useMemo(() => {
     const items = []
-
-    if (weather?.warn) {
-      items.push({
-        id: 'weather',
-        emoji: weather.emoji ?? '⛈️',
-        text: `Chuva · ${weather.temp}°C — evite veículos abertos`,
-        live: true,
-        action: () => {},
-      })
-    }
-
-    if (showTraffic && trafficSummary) {
-      items.push({
-        id: 'traffic',
-        emoji: trafficSummary.emoji,
-        text: trafficSummary.text,
-        action: () => {},
-      })
-    }
-
     const nearbyPlaces = (exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
       .filter(p => origin && kmBetween(origin, p) < 2.5)
-      .slice(0, 3)
+      .slice(0, 4)
     nearbyPlaces.forEach(p => {
       const cat = EXPLORE_CATEGORIES.find(c => c.id === p.category)
       items.push({
         id: `near-${p.id}`,
         emoji: cat?.emoji ?? '📍',
         text: `Perto de você · ${p.name}`,
-        action: () => {
-          switchTab('explorar')
-          mapRef.current?.flyTo(p.lat, p.lon, 15)
-        },
+        live: false,
+        kind: 'nearby',
+        place: p,
       })
     })
-
-    eventsFiltered.filter(e => e.highlight || e.price === 'Grátis').slice(0, 3).forEach(ev => {
+    const upcoming = (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
+      .filter(e => e.highlight || e.price === 'Grátis' || e.price === 'Entrada livre')
+      .slice(0, 4)
+    upcoming.forEach(ev => {
       items.push({
-        id: `feed-ev-${ev.id}`,
+        id: `notif-ev-${ev.id}`,
         emoji: ev.emoji,
-        text: `${ev.title} · ${ev.time}`,
+        text: `Evento · ${ev.title} · ${ev.time}`,
         live: !!ev.highlight,
-        action: () => navigateToEvent(ev),
+        kind: 'event',
+        event: ev,
       })
     })
+    return items.slice(0, 8)
+  }, [origin, exploreCity])
 
-    if (insight && items.length < 6) {
+  const alerts = useMemo(() => {
+    const items = []
+    if (weather?.warn) {
       items.push({
-        id: 'insight',
-        emoji: insight.emoji,
-        text: insight.msg,
-        action: () => {
-          if (insight.cta === 'Ver eventos') switchTab('hoje')
-          else switchTab('explorar')
-        },
+        id: 'alert-weather',
+        emoji: weather.emoji ?? '⛈️',
+        text: `Clima · ${weather.label} · ${weather.temp}°C`,
+        type: 'weather',
       })
     }
+    trafficSegments
+      .filter(s => isCriticalTraffic(s.level))
+      .slice(0, 4)
+      .forEach(s => {
+        items.push({
+          id: `alert-traffic-${s.id}`,
+          emoji: '🚗',
+          text: `Trânsito · ${s.name} · ${s.label}`,
+          type: 'traffic',
+          segment: s,
+        })
+      })
+    return items
+  }, [weather, trafficSegments])
 
-    return items.slice(0, 8)
-  }, [weather, showTraffic, trafficSummary, origin, exploreCity, eventsFiltered, insight])
+  function handleNotificationClick(item) {
+    if (item.kind === 'nearby' && item.place) {
+      mapRef.current?.flyTo(item.place.lat, item.place.lon, 15)
+      return
+    }
+    if (item.kind === 'event' && item.event) navigateToEvent(item.event)
+  }
+
+  function handleAlertClick(alert) {
+    if (alert.type === 'traffic' && alert.segment?.path?.length) {
+      const mid = alert.segment.path[Math.floor(alert.segment.path.length / 2)]
+      mapRef.current?.flyTo(mid[0], mid[1], 15)
+    }
+  }
 
   function handlePlacePinClick(pin) {
     if (pin.type === 'event' && pin.event) {
@@ -556,11 +570,13 @@ export default function Home() {
           destinations={destinations.filter(d => d.lat)}
           routePolyline={routeData?.polyline}
           communityReports={reports}
-          placePins={mapPins}
+          placePins={alwaysVisiblePins}
           trafficSegments={trafficSegments}
           showTraffic={showTraffic}
+          natureFeatures={natureFeatures}
           onMapClick={handleMapClick}
           onPlacePinClick={handlePlacePinClick}
+          onBoundsChange={handleMapBoundsChange}
           dark={dark}
         />
       </div>
@@ -571,44 +587,70 @@ export default function Home() {
       />
 
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
-      <div className="absolute top-0 inset-x-0 z-[25] px-4 pt-12 pb-2 pointer-events-auto">
-        <div className="flex items-start justify-between gap-3">
+      <div className="absolute top-0 inset-x-0 z-[40] px-4 pt-12 pb-2 pointer-events-none flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3 pointer-events-auto">
           <button onClick={detectGPS} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity">
-            <p className={`text-xl font-black ${dark ? 'text-white' : 'text-gray-900'} leading-none`}>Zippi</p>
-            <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${dark ? 'text-white/40' : 'text-gray-400'}`}>
-              {gpsLoading ? '…' : location.city}
+            <p className={`text-xl font-semibold truncate leading-tight ${dark ? 'text-white' : 'text-gray-900'}`}>
+              {gpsLoading ? 'localizando…' : (location.city || 'porto alegre')}
             </p>
-            {location.neighborhood && (
-              <p className={`text-sm font-semibold truncate leading-tight mt-0.5 ${dark ? 'text-white' : 'text-gray-900'}`}>
-                {location.neighborhood}
-              </p>
-            )}
-            <p className={`text-xs truncate leading-tight ${dark ? 'text-white/55' : 'text-gray-500'}`}>
-              {gpsLoading ? 'Detectando localização…' : (location.street || originLabel.split(',')[0])}
+            <p className={`text-xs truncate leading-snug mt-1 ${dark ? 'text-white/60' : 'text-gray-500'}`}>
+              {gpsLoading
+                ? 'detectando localização…'
+                : [
+                    location.neighborhood || 'bairro',
+                    location.street || originLabel.split(',')[0] || 'rua',
+                    weather?.temp != null ? `${weather.temp}°` : '—°',
+                  ].join(' · ')}
             </p>
           </button>
 
           <div className="flex gap-1.5 flex-shrink-0">
-            <button onClick={toggle} className={pill} style={glassPill}>
+            <button onClick={toggle} className={pill} style={glassPill} aria-label="alternar tema">
               {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-gray-700" />}
             </button>
-            <button onClick={() => { setReportCoords(origin); setShowReportModal(true) }} className={pill} style={glassPill}>
-              <TriangleAlert size={16} className="text-orange-400" />
+            <button
+              onClick={togglePinCreationMode}
+              className={pill}
+              style={{
+                ...glassPill,
+                ...(pinCreationMode ? { boxShadow: '0 0 0 2px rgba(255,149,0,0.8)' } : {}),
+              }}
+              aria-label="criar pin ou aviso"
+              title="criar pin/aviso"
+            >
+              <TriangleAlert size={16} className={pinCreationMode ? 'text-orange-300' : 'text-orange-400'} />
             </button>
-            <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="Centralizar no usuário">
+            <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="centralizar no usuário">
               <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
             </button>
           </div>
         </div>
 
-        {/* barra de atualizações */}
-        <FeedBar items={feedItems} dark={dark} pillStyle={glassPill} />
+        <div className="pointer-events-auto">
+          <NotificationsDock
+            items={notificationItems}
+            dark={dark}
+            onItemClick={handleNotificationClick}
+          />
+        </div>
 
-        {/* Map click banner */}
+        <div className="pointer-events-auto">
+          <AlertsDock alerts={alerts} dark={dark} onAlertClick={handleAlertClick} />
+        </div>
+
         {mapClickMode && (
-          <div className="mt-2 flex justify-center">
+          <div className="flex justify-center pointer-events-auto">
             <div className="bg-zippi-400 text-dark-950 px-5 py-2.5 rounded-2xl text-sm font-black shadow-xl">
-              📍 Toque no mapa para definir o destino
+              toque no mapa para definir o destino
+            </div>
+          </div>
+        )}
+
+        {pinCreationMode && (
+          <div className="flex justify-center pointer-events-auto">
+            <div className="px-5 py-2.5 rounded-2xl text-sm font-semibold shadow-xl"
+              style={{ ...glassPill, color: dark ? 'white' : '#111' }}>
+              toque no mapa para posicionar o pin de aviso
             </div>
           </div>
         )}
@@ -693,7 +735,7 @@ export default function Home() {
                   <div className="rounded-2xl overflow-hidden mb-3"
                     style={cardStyle}>
                     {/* Origin */}
-                    <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
+                    <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${GLASS_BORDER}` }}>
                       <div className="relative flex-shrink-0 w-3 h-3">
                         <div className="absolute inset-0 rounded-full bg-zippi-400" />
                         <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-40" />
@@ -746,12 +788,12 @@ export default function Home() {
                   {/* Search dropdown */}
                   {focus && results.length > 0 && (
                     <div className="rounded-2xl mb-3 overflow-hidden shadow-2xl"
-                      style={{ background: dark ? 'rgba(18,18,24,0.96)' : 'rgba(255,255,255,0.97)', backdropFilter:'blur(20px)', border: `1px solid ${CARD_BORDER}` }}
+                      style={{ background: dark ? 'rgba(18,18,24,0.96)' : 'rgba(255,255,255,0.97)', backdropFilter:'blur(20px)', border: `1px solid ${GLASS_BORDER}` }}
                     >
                       {results.map((r, i) => (
                         <button key={i} onMouseDown={() => selectPlace(r)}
                           className={`w-full flex items-start gap-3 px-4 py-3 text-left ${dark ? 'active:bg-white/5' : 'active:bg-black/5'}`}
-                          style={{ borderTop: i > 0 ? `1px solid ${CARD_BORDER}` : 'none' }}
+                          style={{ borderTop: i > 0 ? `1px solid ${GLASS_BORDER}` : 'none' }}
                         >
                           <span className="text-base flex-shrink-0 mt-0.5">📍</span>
                           <p className={`text-sm ${text} leading-tight`}>{r.label}</p>
@@ -1224,7 +1266,7 @@ export default function Home() {
       {showReportModal && (
         <CommunityModal
           lat={reportCoords?.lat} lon={reportCoords?.lon}
-          onClose={() => setShowReportModal(false)}
+          onClose={() => { setShowReportModal(false); setPinCreationMode(false) }}
           onAdded={() => setReports(getReports())}
         />
       )}
