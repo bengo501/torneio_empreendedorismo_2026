@@ -1,30 +1,36 @@
-/** estilos de superfície "glass" inspirados no ios */
-
+/**
+ * estilos de superfície glass inspirados no ios
+ * iOS glass: baixa opacidade de fundo (35–55%) + blur forte (24–40px) + borda com realce sutil
+ */
 export function glassSurface(dark, variant = 'primary') {
   const bases = {
+    // superfície principal: sheet, modal, card
     primary: dark
-      ? { bg: 'rgba(32, 33, 52, 0.78)', border: 'rgba(255,255,255,0.16)' }
-      : { bg: 'rgba(255, 255, 255, 0.78)', border: 'rgba(255,255,255,0.85)' },
+      ? { bg: 'rgba(20, 21, 38, 0.52)', border: 'rgba(255,255,255,0.14)' }
+      : { bg: 'rgba(255, 255, 255, 0.45)', border: 'rgba(255,255,255,0.75)' },
+    // superfície secundária: inputs, itens de lista
     secondary: dark
-      ? { bg: 'rgba(255,255,255,0.09)', border: 'rgba(255,255,255,0.12)' }
-      : { bg: 'rgba(255,255,255,0.52)', border: 'rgba(0,0,0,0.06)' },
+      ? { bg: 'rgba(255,255,255,0.07)', border: 'rgba(255,255,255,0.10)' }
+      : { bg: 'rgba(255,255,255,0.38)', border: 'rgba(0,0,0,0.05)' },
+    // pills/botões de ação flutuantes
     pill: dark
-      ? { bg: 'rgba(18, 18, 28, 0.55)', border: 'rgba(255,255,255,0.14)' }
-      : { bg: 'rgba(255,255,255,0.62)', border: 'rgba(255,255,255,0.75)' },
+      ? { bg: 'rgba(14, 14, 26, 0.42)', border: 'rgba(255,255,255,0.16)' }
+      : { bg: 'rgba(255,255,255,0.46)', border: 'rgba(255,255,255,0.70)' },
+    // docks de notificação e alertas
     dock: dark
-      ? { bg: 'rgba(28, 29, 46, 0.88)', border: 'rgba(255,255,255,0.14)' }
-      : { bg: 'rgba(248, 248, 252, 0.88)', border: 'rgba(0,0,0,0.07)' },
+      ? { bg: 'rgba(18, 19, 36, 0.60)', border: 'rgba(255,255,255,0.13)' }
+      : { bg: 'rgba(250, 250, 255, 0.58)', border: 'rgba(0,0,0,0.06)' },
   }
   const v = bases[variant] ?? bases.primary
 
   return {
     background: v.bg,
-    backdropFilter: 'blur(40px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+    backdropFilter: 'blur(36px) saturate(200%)',
+    WebkitBackdropFilter: 'blur(36px) saturate(200%)',
     border: `1px solid ${v.border}`,
     boxShadow: dark
-      ? '0 8px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.06)'
-      : '0 8px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
+      ? '0 8px 32px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.07)'
+      : '0 8px 32px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.95)',
   }
 }
 

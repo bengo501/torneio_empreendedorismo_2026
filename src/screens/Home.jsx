@@ -14,7 +14,7 @@ import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
 import ServiceDetail   from '../components/ServiceDetail.jsx'
-import { getCurrentPosition, reverseGeocode, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
+import { getCurrentPosition, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
 import { getWeather, isSevereWeather } from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
@@ -23,7 +23,8 @@ import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/exp
 import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
 import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isAlertTraffic } from '../data/traffic.js'
 import { ESSENTIAL_SERVICES } from '../data/essentials.js'
-import { fetchNatureFeatures } from '../services/overpass.js'
+import { fetchNatureFeatures, searchNearbyAmenities, fetchBusStops } from '../services/overpass.js'
+import { fetchNearbyScooters } from '../services/scooters.js'
 import { glassSurface, explorePinColor } from '../styles/glass.js'
 
 // ── Constants ────────────────────────────────────────────────────
@@ -34,7 +35,11 @@ const DOCK_BAR_H = 56
 function computeSnap() {
   const avail = window.innerHeight - NAV_H
   const peek  = HANDLE_H + DOCK_BAR_H + 10
-  return { peek, mid: Math.round(avail * 0.48), full: Math.round(avail * 0.88) }
+  const full  = Math.min(Math.round(avail * 0.88), avail - 160)
+  // #region agent log
+  fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'Home.jsx:computeSnap',message:'snap values',data:{innerHeight:window.innerHeight,avail,peek,mid:Math.round(avail*0.48),full},hypothesisId:'C',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return { peek, mid: Math.round(avail * 0.48), full }
 }
 
 const POA_DEFAULT = { lat: -30.0346, lon: -51.2177, label: 'Porto Alegre, RS' }
@@ -98,6 +103,15 @@ function kmBetween(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
+// ── Essential service icons ──────────────────────────────────────
+// definido fora do componente para evitar recriação a cada render
+const ESSENTIAL_ICONS_MAP = {
+  farmacia:    Cross,
+  mercado:     ShoppingBag,
+  restaurante: UtensilsCrossed,
+  saude:       Heart,
+}
+
 // ── Event Card component ─────────────────────────────────────────
 function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
   return (
@@ -155,6 +169,10 @@ export default function Home() {
   const [routeData,    setRouteData]    = useState(null)
   const [mapClickMode, setMapClickMode] = useState(false)
 
+  /* ── Micromobilidade contextual ──────────────────────────────── */
+  const [busStops,    setBusStops]    = useState([])
+  const [scooterPins, setScooterPins] = useState([])
+
   /* ── Community ─────────────────────────────────────────────── */
   const [reports,         setReports]         = useState([])
   const [showReportModal, setShowReportModal] = useState(false)
@@ -193,7 +211,8 @@ export default function Home() {
   const mapRef        = useRef(null)
   const dockInputRef  = useRef(null)
   const dragState     = useRef({ active:false, startY:0, startH:0 })
-  const pendingCenter = useRef(false)
+  const pendingCenter    = useRef(false)
+  const pendingCinematic = useRef(false)
 
   const SNAP = useMemo(() => computeSnap(), [])
 
@@ -243,7 +262,7 @@ export default function Home() {
       const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
       setOrigin({ ...pos, label: loc.label }); setOriginLabel(loc.label)
       setLocation({ city: loc.city, neighborhood: loc.neighborhood, street: loc.street })
-      await refreshWeather(pos.lat, pos.lon)
+      // clima é carregado pelo useEffect([origin]) ao setar setOrigin abaixo
     } catch {
       setGpsError(true)
       setOriginLabel(POA_DEFAULT.label)
@@ -255,8 +274,37 @@ export default function Home() {
   /* ── Route ─────────────────────────────────────────────────── */
   useEffect(() => {
     const dest = destinations[0]
-    if (!origin || !dest?.lat) { setRouteData(null); return }
-    fetchRoute(origin, dest).then(setRouteData)
+    if (!origin || !dest?.lat) {
+      setRouteData(null)
+      setBusStops([])
+      setScooterPins([])
+      return
+    }
+    fetchRoute(origin, dest).then(route => {
+      setRouteData(route)
+      if (pendingCinematic.current && route?.polyline?.length > 1) {
+        pendingCinematic.current = false
+        mapRef.current?.cinematicRoute(origin, dest, route.polyline)
+      }
+    })
+    // carrega paradas de ônibus próximas à origem e ao destino
+    Promise.all([
+      fetchBusStops(origin.lat, origin.lon, 800),
+      fetchBusStops(dest.lat, dest.lon, 800),
+    ]).then(([near, far]) => {
+      const seen = new Set()
+      const merged = [...near, ...far].filter(s => {
+        const k = `${s.lat.toFixed(4)}_${s.lon.toFixed(4)}`
+        if (seen.has(k)) return false
+        seen.add(k)
+        return true
+      })
+      setBusStops(merged)
+    }).catch(() => {})
+    // carrega patinetes próximos à origem
+    fetchNearbyScooters(origin.lat, origin.lon, 600)
+      .then(setScooterPins)
+      .catch(() => {})
   }, [origin, destinations])
 
   /* ── Search autocomplete ───────────────────────────────────── */
@@ -264,7 +312,10 @@ export default function Home() {
     clearTimeout(searchTimer.current)
     if (query.length < 2) { setResults([]); return }
     searchTimer.current = setTimeout(async () => {
-      const places = await searchPlaces(query, origin?.lat, origin?.lon)
+      const searchLat = origin?.lat ?? POA_DEFAULT.lat
+      const searchLon = origin?.lon ?? POA_DEFAULT.lon
+      // radiusDeg=0.5 (~55km) com bounded=0: prioriza resultados próximos mas permite cidade inteira
+      const places = await searchPlaces(query, searchLat, searchLon, { radiusDeg: 0.5 })
       setResults(places)
     }, 400)
     return () => clearTimeout(searchTimer.current)
@@ -273,11 +324,14 @@ export default function Home() {
   const selectPlace = useCallback((place) => {
     const next = [...destinations]
     next[activeDestIdx] = { label: place.label, lat: place.lat, lon: place.lon }
+    pendingCinematic.current = true
     setDestinations(next)
+    setLocationZoom('in') // reseta toggle para o estado inicial
     setQuery(''); setResults([]); setFocus(false)
     setActiveTab('ir')
-    if (sheetState === 'search') animateSheet(SNAP.peek)
-  }, [destinations, activeDestIdx, sheetState, SNAP.peek])
+    // fecha a sheet para o mapa ficar visível durante a animação
+    animateSheet(SNAP.peek)
+  }, [destinations, activeDestIdx, SNAP.peek])
 
   /* ── Navigation (Ir tab) ───────────────────────────────────── */
   function startNavigation() {
@@ -306,12 +360,39 @@ export default function Home() {
     const prefs = FILTERS.find(f => f.id === fId)?.prefs
     setRanked(getRankedServices(resultKm, prefs))
   }
-  function backToSearch() { setSheetState('search'); setSelected(null); animateSheet(SNAP.peek) }
+  function backToSearch() {
+    setSheetState('search')
+    setSelected(null)
+    animateSheet(SNAP.peek)
+    // re-centra o mapa na posição do usuário ao apagar o caminho
+    if (origin?.lat && origin?.lon) {
+      mapRef.current?.flyTo(origin.lat, origin.lon)
+    }
+  }
+
+  // 'out' = zoom out ativo | 'in' = zoom in no usuário | null = estado inicial
+  const [locationZoom, setLocationZoom] = useState('in')
 
   function centerOnUser() {
-    pendingCenter.current = true
-    if (origin) mapRef.current?.flyTo(origin.lat, origin.lon)
-    detectGPS()
+    if (!origin) { detectGPS(); return }
+    const dest = destinations[0]
+    const hasDest = Boolean(dest?.lat)
+
+    if (locationZoom === 'in') {
+      // primeiro clique: zoom out
+      if (hasDest) {
+        // mostra usuário + destino juntos
+        mapRef.current?.fitUserAndDest(origin, dest)
+      } else {
+        // zoom out geral da cidade (nível 13)
+        mapRef.current?.flyTo(origin.lat, origin.lon, 13)
+      }
+      setLocationZoom('out')
+    } else {
+      // segundo clique: zoom in no usuário
+      mapRef.current?.flyTo(origin.lat, origin.lon, 16)
+      setLocationZoom('in')
+    }
   }
 
   function expandSheet(target = SNAP.full) {
@@ -334,11 +415,32 @@ export default function Home() {
 
   async function openEssentialService(service) {
     setActiveTab('ir')
+    setSheetState('search')
     setActiveDestIdx(0)
     setFocus(true)
     setQuery(service.query)
     expandSheet(SNAP.full)
-    const places = await searchPlaces(service.query, origin?.lat, origin?.lon)
+
+    // usa coordenadas reais ou POA_DEFAULT se GPS ainda não carregou
+    const searchLat = origin?.lat ?? POA_DEFAULT.lat
+    const searchLon = origin?.lon ?? POA_DEFAULT.lon
+    const cityName  = location.city || 'Porto Alegre'
+
+    if (service.osmTags?.length) {
+      // 1ª tentativa: Overpass 3km (bairro)
+      let places = await searchNearbyAmenities(service.osmTags, searchLat, searchLon, 3000)
+      // 2ª tentativa: Overpass 8km (cidade próxima) se 3km retornou vazio
+      if (!places.length) {
+        places = await searchNearbyAmenities(service.osmTags, searchLat, searchLon, 8000)
+      }
+      if (places.length > 0) {
+        setResults(places)
+        return
+      }
+    }
+    // fallback final: Nominatim com nome da cidade no query para garantir localidade
+    const localQuery = `${service.query} ${cityName}`
+    const places = await searchPlaces(localQuery, searchLat, searchLon, { strict: true })
     setResults(places)
   }
 
@@ -562,13 +664,6 @@ export default function Home() {
     return items
   }, [weather, trafficSegments])
 
-  const ESSENTIAL_ICONS = {
-    farmacia: Cross,
-    mercado: ShoppingBag,
-    restaurante: UtensilsCrossed,
-    saude: Heart,
-  }
-
   function handleNotificationClick(item) {
     if (item.kind === 'nearby' && item.place) {
       mapRef.current?.flyTo(item.place.lat, item.place.lon, 15)
@@ -619,6 +714,8 @@ export default function Home() {
           trafficSegments={trafficSegments}
           showTraffic={showTraffic}
           natureFeatures={natureFeatures}
+          busStops={busStops}
+          scooterPins={scooterPins}
           onMapClick={handleMapClick}
           onPlacePinClick={handlePlacePinClick}
           onBoundsChange={handleMapBoundsChange}
@@ -679,8 +776,20 @@ export default function Home() {
               >
                 <MapPin size={16} className={pinCreationMode ? 'text-zippi-400' : dark ? 'text-zippi-400' : 'text-gray-800'} />
               </button>
-              <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="centralizar no usuário">
-                <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
+              <button
+                onClick={centerOnUser}
+                className={pill}
+                style={{
+                  ...glassPill,
+                  ...(locationZoom === 'out' ? { boxShadow: '0 0 0 2px rgba(61,237,122,0.7)' } : {}),
+                }}
+                aria-label="centralizar no usuário"
+                title={locationZoom === 'in' ? 'Ver contexto' : 'Zoom no usuário'}
+              >
+                <Crosshair
+                  size={16}
+                  className={locationZoom === 'out' ? 'text-zippi-400' : dark ? 'text-white' : 'text-gray-800'}
+                />
               </button>
               <button onClick={() => navigate('/profile')} className={pill} style={glassPill} aria-label="perfil">
                 <User2 size={16} className={dark ? 'text-white' : 'text-gray-800'} />
@@ -1036,7 +1145,15 @@ export default function Home() {
                           A partir de <span className={`font-bold ${text}`}>R${ranked[0].price.toFixed(2).replace('.',',')}</span>
                         </p>}
                       </div>
-                      {ranked.map((s, i) => <ServiceCard key={s.id} service={s} rank={i} onSelect={setSelected} />)}
+                      {ranked.map((s, i) => (
+                        <ServiceCard
+                          key={s.id}
+                          service={s}
+                          rank={i}
+                          origin={origin}
+                          dest={destinations[0]?.lat ? destinations[0] : null}
+                        />
+                      ))}
                     </div>
                   )}
 
@@ -1143,7 +1260,7 @@ export default function Home() {
               </p>
               <div className="grid grid-cols-2 gap-2.5">
                 {ESSENTIAL_SERVICES.map(svc => {
-                  const Icon = ESSENTIAL_ICONS[svc.id] ?? ShoppingBag
+                  const Icon = ESSENTIAL_ICONS_MAP[svc.id] ?? ShoppingBag
                   return (
                     <button
                       key={svc.id}
@@ -1382,14 +1499,7 @@ export default function Home() {
           onClose={() => setVoiceMode(null)}
         />
       )}
-      {selected && (
-        <ServiceDetail
-          service={selected}
-          origin={origin}
-          dest={destinations[0]?.lat ? destinations[0] : null}
-          onClose={() => setSelected(null)}
-        />
-      )}
+      {/* ServiceDetail removido: cards agora abrem o app direto via deeplink */}
     </div>
   )
 }

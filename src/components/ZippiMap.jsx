@@ -66,14 +66,16 @@ function makePlacePinIcon(emoji, label, color) {
 const ZippiMap = memo(forwardRef(function ZippiMap({
   origin, destinations, routePolyline, communityReports,
   placePins = [], trafficSegments = [], showTraffic = false,
-  natureFeatures = [],
+  natureFeatures = [], busStops = [], scooterPins = [],
   onMapClick, onPlacePinClick, onBoundsChange, dark, className = '',
 }, ref) {
-  const containerRef = useRef(null)
-  const mapRef       = useRef(null)
-  const tileLayerRef = useRef(null)
-  const layersRef    = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[], nature:[] })
-  const darkRef      = useRef(dark)
+  const containerRef      = useRef(null)
+  const mapRef            = useRef(null)
+  const tileLayerRef      = useRef(null)
+  const layersRef         = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[], nature:[], busStops:[], scooters:[] })
+  const darkRef           = useRef(dark)
+  // quando true, suprime o fitBounds automático para não interromper a animação cinemática
+  const cinematicActiveRef = useRef(false)
   const onPinRef     = useRef(onPlacePinClick)
   const onBoundsRef  = useRef(onBoundsChange)
   useEffect(() => { darkRef.current = dark }, [dark])
@@ -223,7 +225,10 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       const outline = L.polyline(routePolyline, { color:'#ffffff', weight:9, opacity:0.3, lineCap:'round', lineJoin:'round', smoothFactor: 1.5 }).addTo(map)
       const line    = L.polyline(routePolyline, { color:GREEN, weight:5, opacity:0.9, lineCap:'round', lineJoin:'round', smoothFactor: 1.5 }).addTo(map)
       L_.routeLines.push(outline, line)
-      map.fitBounds(line.getBounds(), { padding:[100, 60] })
+      // não faz fitBounds automático quando a animação cinemática está ativa
+      if (!cinematicActiveRef.current) {
+        map.fitBounds(line.getBounds(), { padding:[100, 60] })
+      }
     } else if (origin && !routePolyline?.length) {
       map.setView([origin.lat, origin.lon], map.getZoom() || 15)
     }
@@ -256,6 +261,50 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     })
   }, [placePins])
 
+  /* paradas de ônibus */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const L_ = layersRef.current
+    L_.busStops.forEach(m => map.removeLayer(m))
+    L_.busStops = []
+
+    busStops?.forEach(stop => {
+      if (!stop.lat || !stop.lon) return
+      const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
+      const icon = L.divIcon({
+        html: `<div style="width:24px;height:24px;border-radius:50%;background:#34D399;border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🚌</div>`,
+        className:'', iconSize:[24,24], iconAnchor:[12,12],
+      })
+      const m = L.marker([stop.lat, stop.lon], { icon, zIndexOffset: 20 })
+        .bindPopup(`<b>🚌 ${stop.label}</b><br><small>${stop.distanceKm?.toFixed ? stop.distanceKm.toFixed(2) + ' km' : ''}</small>`, { className: pc })
+        .addTo(map)
+      L_.busStops.push(m)
+    })
+  }, [busStops])
+
+  /* patinetes */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const L_ = layersRef.current
+    L_.scooters.forEach(m => map.removeLayer(m))
+    L_.scooters = []
+
+    scooterPins?.forEach(s => {
+      if (!s.lat || !s.lon) return
+      const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
+      const icon = L.divIcon({
+        html: `<div style="width:28px;height:28px;border-radius:50%;background:${s.color};border:2.5px solid white;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${s.emoji}</div>`,
+        className:'', iconSize:[28,28], iconAnchor:[14,14],
+      })
+      const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: 25 })
+        .bindPopup(`<b>${s.emoji} ${s.name}</b>${s.batteryPct != null ? `<br><small>🔋 ${s.batteryPct}%</small>` : ''}`, { className: pc })
+        .addTo(map)
+      L_.scooters.push(m)
+    })
+  }, [scooterPins])
+
   /* relatórios comunidade */
   useEffect(() => {
     const map = mapRef.current
@@ -275,12 +324,55 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
 
   useImperativeHandle(ref, () => ({
     flyTo(lat, lon, zoom = 15) {
-      mapRef.current?.setView([lat, lon], zoom, { animate: true })
+      mapRef.current?.flyTo([lat, lon], zoom, { duration: 0.7, easeLinearity: 0.5 })
+    },
+    fitUserAndDest(userCoords, destCoords) {
+      const map = mapRef.current
+      if (!map) return
+      const bounds = L.latLngBounds(
+        [userCoords.lat, userCoords.lon],
+        [destCoords.lat, destCoords.lon],
+      )
+      map.flyToBounds(bounds, { padding: [90, 70], duration: 0.9, easeLinearity: 0.25 })
+    },
+    getZoom() {
+      return mapRef.current?.getZoom() ?? 15
     },
     getBounds() {
       const b = mapRef.current?.getBounds()
       if (!b) return null
       return { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() }
+    },
+    /**
+     * Sequência cinemática ao selecionar destino (estilo Pokémon GO):
+     * - rápido: zoom in no destino (flyTo pan+zoom suave, 0.7s)
+     * - suave: zoom out mostrando rota completa (fitBounds, 1.6s)
+     * - rápido: zoom in de volta ao usuário (flyTo, 0.7s)
+     */
+    cinematicRoute(originCoords, destCoords, routeCoords) {
+      const map = mapRef.current
+      if (!map) return Promise.resolve(false)
+      cinematicActiveRef.current = true
+      return new Promise(resolve => {
+        // passo 1 — rápido: flyTo no destino, zoom in
+        map.flyTo([destCoords.lat, destCoords.lon], 17, { duration: 0.7, easeLinearity: 0.5 })
+        setTimeout(() => {
+          // passo 2 — suave: zoom out para mostrar rota/usuário/destino
+          const bounds = routeCoords?.length > 1
+            ? L.polyline(routeCoords).getBounds()
+            : L.latLngBounds([originCoords.lat, originCoords.lon], [destCoords.lat, destCoords.lon])
+          // flyToBounds não existe; fitBounds com animate
+          map.flyToBounds(bounds, { padding: [100, 70], duration: 1.6, easeLinearity: 0.15 })
+          setTimeout(() => {
+            // passo 3 — rápido: volta ao usuário com zoom in
+            map.flyTo([originCoords.lat, originCoords.lon], 16, { duration: 0.7, easeLinearity: 0.5 })
+            setTimeout(() => {
+              cinematicActiveRef.current = false
+              resolve(true)
+            }, 800)
+          }, 2000)
+        }, 900)
+      })
     },
   }))
 

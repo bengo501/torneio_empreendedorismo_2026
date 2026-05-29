@@ -1,108 +1,86 @@
-import { Clock, Leaf, ChevronRight } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
-import { ODS_IMPACT } from '../data/explore.js'
+import { openService } from '../services/deeplinks.js'
 
-const CAT = {
-  carro:     { label: 'Carro',    dot: 'bg-blue-400'   },
-  patinete:  { label: 'Patinete', dot: 'bg-orange-400' },
-  bicicleta: { label: 'Bike',     dot: 'bg-yellow-400' },
+const CAT_COLOR = {
+  carro:     '#60A5FA',
+  patinete:  '#FB923C',
+  bicicleta: '#FACC15',
+  onibus:    '#34D399',
 }
 
-export default function ServiceCard({ service, rank, onSelect }) {
+/**
+ * Card simplificado de transporte:
+ * emoji + nome | categoria | preço | tempo | botão "Abrir"
+ * Clicar abre o app diretamente (deeplink) ou leva à loja.
+ */
+export default function ServiceCard({ service, rank, origin, dest }) {
   const { dark } = useTheme()
-  const isBest   = rank === 0
-  const cat      = CAT[service.category]
-  const ods      = ODS_IMPACT[service.category]
 
-  const bg    = dark ? 'bg-dark-900'    : 'bg-white'
-  const bdr   = dark ? 'border-dark-800': 'border-gray-200'
-  const bdrT  = dark ? 'border-dark-800': 'border-gray-100'
-  const text  = dark ? 'text-white'     : 'text-gray-900'
-  const muted = dark ? 'text-dark-500'  : 'text-gray-400'
-  const dim   = dark ? 'text-dark-600'  : 'text-gray-300'
-  const score = dark ? 'text-dark-400'  : 'text-gray-500'
-  const scdim = dark ? 'text-dark-700'  : 'text-gray-300'
+  const bg    = dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.55)'
+  const bdr   = dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'
+  const text  = dark ? 'text-white'              : 'text-gray-900'
+  const muted = dark ? 'text-white/45'           : 'text-gray-500'
+
+  const isBest  = rank === 0
+  const catColor = CAT_COLOR[service.category] ?? '#9CA3AF'
+
+  function handleOpen(e) {
+    e.stopPropagation()
+    openService(service.id, origin, dest)
+  }
 
   return (
-    <button
-      onClick={() => onSelect(service)}
-      className={`w-full text-left rounded-3xl overflow-hidden border transition-all active:scale-[0.98] ${bg} ${
-        isBest ? 'border-zippi-400/40' : bdr
-      }`}
+    <div
+      className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all active:scale-[0.98]"
+      style={{
+        background: bg,
+        border: `1px solid ${isBest ? 'rgba(61,237,122,0.35)' : bdr}`,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }}
     >
-      {isBest && (
-        <div className="bg-zippi-400 px-4 py-1.5 flex items-center gap-2">
-          <span className="text-xs font-bold text-dark-950 uppercase tracking-widest">⚡ Melhor escolha Zippi</span>
-        </div>
-      )}
+      {/* icon */}
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+        style={{ background: service.bgColor ?? (dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') }}
+      >
+        {service.emoji}
+      </div>
 
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          {/* Logo */}
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 border border-dark-700"
-            style={{ backgroundColor: service.bgColor }}
-          >
-            {service.emoji}
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className={`font-bold ${text} text-base`}>{service.name}</span>
-              <span className="flex items-center gap-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${cat.dot}`} />
-                <span className={`text-xs ${muted}`}>{cat.label}</span>
-              </span>
-            </div>
-            <p className={`text-xs ${muted} truncate`}>{service.description}</p>
-          </div>
-
-          {/* Price + time */}
-          <div className="text-right flex-shrink-0">
-            <p className={`text-lg font-black ${text} leading-tight`}>
-              R${service.price.toFixed(2).replace('.', ',')}
-            </p>
-            <p className={`text-xs ${muted}`}>{service.totalMin} min</p>
-          </div>
-        </div>
-
-        {/* Metrics */}
-        <div className={`flex items-center gap-4 mt-3 pt-3 border-t ${bdrT}`}>
-          <div className={`flex items-center gap-1.5 text-xs ${muted}`}>
-            <Clock size={11} />
-            <span>{service.avgWaitMin} min espera</span>
-          </div>
-
-          {service.co2Saved > 0 ? (
-            <div className="flex items-center gap-1.5 text-xs text-zippi-400 font-medium">
-              <Leaf size={11} />
-              <span>-{service.co2Saved} kg CO₂</span>
-            </div>
-          ) : (
-            <div className={`flex items-center gap-1.5 text-xs ${dim}`}>
-              <Leaf size={11} />
-              <span>{service.co2PerKm}g/km</span>
-            </div>
-          )}
-
-          <div className="ml-auto flex items-center gap-2">
-            {ods && (
-              <span
-                className="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none"
-                style={{ color: ods.color, backgroundColor: ods.color + '22', border: `1px solid ${ods.color}44` }}
-              >
-                ODS {ods.code}
-              </span>
-            )}
-            <span className={`text-xs font-black ${score}`}>
-              {(service.score * 10).toFixed(0)}
-              <span className={`${scdim} font-medium`}>/100</span>
+      {/* name + meta */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className={`text-sm font-bold ${text} truncate`}>{service.name}</span>
+          {isBest && (
+            <span className="text-[9px] font-black text-zippi-400 bg-zippi-400/10 px-1.5 py-0.5 rounded-md leading-none flex-shrink-0">
+              MELHOR
             </span>
-            <ChevronRight size={14} className={dim} />
-          </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md leading-none"
+            style={{ color: catColor, background: catColor + '20' }}>
+            {service.category}
+          </span>
+          <span className={`text-xs ${muted}`}>{service.avgWaitMin} min espera</span>
         </div>
       </div>
-    </button>
+
+      {/* price + time */}
+      <div className="text-right flex-shrink-0 mr-1">
+        <p className={`text-sm font-black ${text} leading-tight`}>
+          R${service.price.toFixed(2).replace('.', ',')}
+        </p>
+        <p className={`text-[11px] ${muted}`}>{service.totalMin} min</p>
+      </div>
+
+      {/* open app button */}
+      <button
+        onClick={handleOpen}
+        className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-bold bg-zippi-400 text-dark-950 active:scale-90 transition-transform leading-none"
+      >
+        Abrir
+      </button>
+    </div>
   )
 }

@@ -221,22 +221,24 @@ export default function VoiceAssistant({ onResult, onClose, mode = 'chat' }) {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-zippi-400/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-base">📍</span>
+                      <span className="text-base">{isGuide ? '🧭' : '📍'}</span>
                     </div>
                     <div>
-                      <p className={`text-xs ${muted}`}>Destino</p>
+                      <p className={`text-xs ${muted}`}>{isGuide ? 'Busca' : 'Destino'}</p>
                       <p className={`text-sm font-bold ${text} leading-tight`}>{parsed.destination}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-zippi-400/20 flex items-center justify-center flex-shrink-0">
-                      <span className="text-base">⚡</span>
+                  {!isGuide && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-zippi-400/20 flex items-center justify-center flex-shrink-0">
+                        <span className="text-base">⚡</span>
+                      </div>
+                      <div>
+                        <p className={`text-xs ${muted}`}>Prioridade detectada</p>
+                        <p className="text-sm font-bold text-zippi-400">{PREF_LABELS[parsed.preference]}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className={`text-xs ${muted}`}>Prioridade detectada</p>
-                      <p className="text-sm font-bold text-zippi-400">{PREF_LABELS[parsed.preference]}</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -280,18 +282,20 @@ export default function VoiceAssistant({ onResult, onClose, mode = 'chat' }) {
           {/* ── NO SUPPORT ── */}
           {status === 'nosupport' && (
             <div className="flex flex-col items-center gap-5 py-4">
-              <span className="text-5xl">🌐</span>
+              <span className="text-5xl">🎙️</span>
               <div className="text-center">
-                <p className={`text-base font-bold ${text} mb-1`}>Voz não disponível</p>
+                <p className={`text-base font-bold ${text} mb-1`}>Microfone não disponível</p>
                 <p className={`text-sm ${muted} max-w-xs mx-auto`}>
-                  Use Chrome ou Samsung Internet no Android para ativar o assistente de voz.
+                  {typeof navigator !== 'undefined' && navigator.userAgent?.includes('Firefox')
+                    ? 'O Firefox não suporta reconhecimento de voz. Feche este painel e use a barra de texto para buscar seu destino.'
+                    : 'Reconhecimento de voz não suportado. Use Chrome ou Edge para ativar esta função, ou feche e use a barra de texto.'}
                 </p>
               </div>
               <button
                 onClick={onClose}
                 className="w-full py-3.5 rounded-2xl bg-zippi-400 text-dark-950 font-black active:scale-95 transition-transform"
               >
-                Fechar
+                Fechar e usar texto
               </button>
             </div>
           )}

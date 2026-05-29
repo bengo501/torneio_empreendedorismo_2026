@@ -116,3 +116,118 @@ export function bboxFromLeaflet(bounds) {
   const ne = bounds.getNorthEast()
   return { south: sw.lat, west: sw.lng, north: ne.lat, east: ne.lng }
 }
+
+/**
+ * Busca paradas de ônibus próximas (Overpass).
+ * @param {number} lat  - latitude central
+ * @param {number} lon  - longitude central
+ * @param {number} [radiusMeters=1200] - raio de busca
+ * @returns {Promise<Array<{label,lat,lon,distanceKm}>>}
+ */
+export async function fetchBusStops(lat, lon, radiusMeters = 1200) {
+  const cKey = `zippi_osm_bus_${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}_${radiusMeters}`
+  const cached = readCache(cKey)
+  if (cached) return cached
+
+  const query = `
+[out:json][timeout:10];
+(
+  node["highway"="bus_stop"](around:${radiusMeters},${lat},${lon});
+  node["public_transport"="stop_position"]["bus"="yes"](around:${radiusMeters},${lat},${lon});
+);
+out tags;`
+
+  try {
+    const data = await runQuery(query)
+    const results = (data.elements || [])
+      .map(el => ({
+        label: el.tags?.name || el.tags?.ref || 'Parada de ônibus',
+        lat: el.lat,
+        lon: el.lon,
+        distanceKm: haversine(lat, lon, el.lat, el.lon),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 20)
+    writeCache(cKey, results)
+    return results
+  } catch {
+    return []
+  }
+}
+
+/** haversine distance in km between two lat/lon points */
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2)
+}
+
+/**
+ * Busca amenities/POIs próximos ao usuário via Overpass "around".
+ * Muito mais preciso que Nominatim para "farmácia perto de mim".
+ *
+ * @param {Array<{key:string,value:string}>} tags  - ex: [{key:'amenity',value:'pharmacy'}]
+ * @param {number} lat                             - latitude do usuário
+ * @param {number} lon                             - longitude do usuário
+ * @param {number} [radiusMeters=3000]             - raio de busca em metros
+ * @returns {Promise<Array<{label,fullLabel,lat,lon,distanceKm}>>}
+ */
+export async function searchNearbyAmenities(tags, lat, lon, radiusMeters = 3000) {
+  // #region agent log
+  fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'called',data:{tags,lat,lon,radiusMeters},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  // cacheKey precisa de strings para tags — usa formato simples sem toFixed em strings
+  const tagStr = tags.map(t => `${t.key}=${t.value}`).join('|')
+  const cKey = `zippi_osm_poi_${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}_${tagStr}_${radiusMeters}`
+  const cached = readCache(cKey)
+  if (cached) return cached
+
+  const filters = tags
+    .map(t => `  node["${t.key}"="${t.value}"](around:${radiusMeters},${lat},${lon});\n  way["${t.key}"="${t.value}"](around:${radiusMeters},${lat},${lon});`)
+    .join('\n')
+
+  const query = `[out:json][timeout:15];\n(\n${filters}\n);\nout center tags;`
+
+  try {
+    const data = await runQuery(query)
+    const results = (data.elements || [])
+      .filter(el => el.tags?.name)
+      .map(el => {
+        const elLat = el.lat ?? el.center?.lat
+        const elLon = el.lon ?? el.center?.lon
+        if (!elLat || !elLon) return null
+        const tags_ = el.tags || {}
+        const addr = [
+          tags_['addr:street'],
+          tags_['addr:housenumber'],
+          tags_['addr:suburb'] || tags_['addr:neighbourhood'],
+        ].filter(Boolean).join(', ')
+        const distanceKm = haversine(lat, lon, elLat, elLon)
+        const label = addr ? `${tags_.name}, ${addr}` : tags_.name
+        return {
+          label,
+          fullLabel: `${tags_.name} — ${addr || 'Porto Alegre'}`,
+          lat: elLat,
+          lon: elLon,
+          distanceKm,
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 8)
+
+    // #region agent log
+    fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'results',data:{count:results.length,first:results[0]?.label,firstLat:results[0]?.lat,firstLon:results[0]?.lon},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    writeCache(cKey, results)
+    return results
+  } catch(e) {
+    // #region agent log
+    fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'CATCH error',data:{error:String(e)},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return []
+  }
+}

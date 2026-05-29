@@ -44,17 +44,34 @@ export async function reverseGeocode(lat, lon) {
   return d.label
 }
 
-/** Forward geocode: text → list of places */
-export async function searchPlaces(query, lat, lon) {
+/**
+ * Forward geocode: text → list of places
+ * @param {string} query - search term
+ * @param {number|null} lat - user latitude for biasing
+ * @param {number|null} lon - user longitude for biasing
+ * @param {{ strict?: boolean, radiusDeg?: number }} opts
+ *   strict=true  → bounded=1, only returns results inside the viewbox (for Essenciais/nearby)
+ *   strict=false → bounded=0, biases toward viewbox but allows wider results (for Ir/Explorar)
+ *   radiusDeg    → viewbox half-size in degrees (default 0.5° ≈ 55 km for strict=false, 0.15° ≈ 17 km for strict=true)
+ */
+export async function searchPlaces(query, lat, lon, { strict = false, radiusDeg } = {}) {
+  // #region agent log
+  fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'geo.js:searchPlaces',message:'search called',data:{query,lat,lon,strict,radiusDeg},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   try {
+    const r = radiusDeg ?? (strict ? 0.15 : 0.5)
     const viewbox = lat && lon
-      ? `&viewbox=${lon - 0.1},${lat + 0.1},${lon + 0.1},${lat - 0.1}&bounded=0`
+      ? `&viewbox=${lon - r},${lat + r},${lon + r},${lat - r}&bounded=${strict ? 1 : 0}`
       : ''
+    const country = '&countrycodes=br'
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1${viewbox}&accept-language=pt-BR`,
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&addressdetails=1${viewbox}${country}&accept-language=pt-BR`,
       { headers: { 'Accept-Language': 'pt-BR' } }
     )
     const data = await res.json()
+    // #region agent log
+    fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'geo.js:searchPlaces',message:'results received',data:{count:data.length,first:data[0]?.display_name,firstLat:data[0]?.lat,firstLon:data[0]?.lon,strict},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return data.map(p => ({
       label: p.display_name.split(',').slice(0, 3).join(','),
       fullLabel: p.display_name,
