@@ -16,26 +16,32 @@ export function getCurrentPosition(highAccuracy = true) {
   })
 }
 
-/** Reverse geocode: coordinates → address (OpenStreetMap Nominatim, free) */
-export async function reverseGeocode(lat, lon) {
+/** Reverse geocode detalhado: rua, bairro, cidade */
+export async function reverseGeocodeDetailed(lat, lon) {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`,
       { headers: { 'Accept-Language': 'pt-BR' } }
     )
     const data = await res.json()
-    // Build a short readable address
     const a = data.address || {}
-    const parts = [
-      a.road || a.pedestrian || a.path,
-      a.house_number,
-      a.suburb || a.neighbourhood || a.city_district,
-      a.city || a.town || a.village,
-    ].filter(Boolean)
-    return parts.length ? parts.join(', ') : data.display_name
+    const street = [a.road || a.pedestrian || a.footway, a.house_number].filter(Boolean).join(', ')
+    const neighborhood = a.suburb || a.neighbourhood || a.city_district || a.quarter || null
+    const city = a.city || a.town || a.village || a.municipality || 'Porto Alegre'
+    const state = a.state || 'RS'
+    const parts = [street, neighborhood, city].filter(Boolean)
+    const label = parts.length ? parts.join(', ') : (data.display_name ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`)
+    return { label, street: street || null, neighborhood, city, state }
   } catch {
-    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+    const fallback = `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+    return { label: fallback, street: null, neighborhood: null, city: 'Porto Alegre', state: 'RS' }
   }
+}
+
+/** Reverse geocode: coordinates → endereço resumido (string) */
+export async function reverseGeocode(lat, lon) {
+  const d = await reverseGeocodeDetailed(lat, lon)
+  return d.label
 }
 
 /** Forward geocode: text → list of places */

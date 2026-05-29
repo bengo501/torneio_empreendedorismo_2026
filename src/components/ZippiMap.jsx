@@ -2,6 +2,7 @@ import { useEffect, useRef, memo, forwardRef, useImperativeHandle } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { upvoteReport } from '../services/community.js'
+import { explorePinColor, eventPinColor } from '../styles/glass.js'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -41,20 +42,31 @@ function makeDestIcon(label='') {
   })
 }
 
-// memo prevents re-render from parent state changes (e.g. theme toggle)
-// that don't affect map data — the map ref persists across renders.
+function makePlacePinIcon(emoji, label, color) {
+  const short = (label ?? '').slice(0, 16)
+  return L.divIcon({
+    html: `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer">
+      <div style="width:38px;height:38px;border-radius:50%;background:${color};border:2.5px solid rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 14px rgba(0,0,0,0.35)">${emoji}</div>
+      <div style="background:rgba(12,12,20,0.82);color:white;font-size:10px;font-weight:800;padding:2px 9px;border-radius:12px;white-space:nowrap;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12)">${short}</div>
+    </div>`,
+    className:'', iconSize:[88, 54], iconAnchor:[44, 54], popupAnchor:[0, -54],
+  })
+}
+
 const ZippiMap = memo(forwardRef(function ZippiMap({
-  origin, destinations, routePolyline, communityReports, onMapClick, dark, className='',
+  origin, destinations, routePolyline, communityReports,
+  placePins = [], trafficSegments = [], showTraffic = false,
+  onMapClick, onPlacePinClick, dark, className = '',
 }, ref) {
   const containerRef = useRef(null)
   const mapRef       = useRef(null)
   const tileLayerRef = useRef(null)
-  const layersRef    = useRef({ markers:[], polylines:[], reports:[] })
-  // keep dark value accessible without adding it to effect deps
+  const layersRef    = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[] })
   const darkRef      = useRef(dark)
+  const onPinRef     = useRef(onPlacePinClick)
   useEffect(() => { darkRef.current = dark }, [dark])
+  useEffect(() => { onPinRef.current = onPlacePinClick }, [onPlacePinClick])
 
-  // ── Init map once ────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
@@ -66,14 +78,15 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
         .leaflet-container{font-family:Inter,system-ui,sans-serif;z-index:0!important}
         .leaflet-pane{z-index:1!important}
         .leaflet-tile-pane{z-index:1!important}
-        .leaflet-marker-pane{z-index:2!important}
-        .leaflet-popup-pane{z-index:3!important}
-        .leaflet-control-attribution{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(4px);border-radius:8px 0 0 0!important;color:rgba(255,255,255,.7)!important;font-size:9px!important}
+        .leaflet-overlay-pane{z-index:2!important}
+        .leaflet-marker-pane{z-index:3!important}
+        .leaflet-popup-pane{z-index:4!important}
+        .leaflet-control-attribution{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(8px);border-radius:8px 0 0 0!important;color:rgba(255,255,255,.7)!important;font-size:9px!important}
         .leaflet-control-attribution a{color:rgba(255,255,255,.9)!important}
-        .zippi-popup .leaflet-popup-content-wrapper{background:#1A1A1A;color:white;border-radius:14px;border:1px solid #333;box-shadow:0 4px 24px rgba(0,0,0,.5)}
-        .zippi-popup .leaflet-popup-tip{background:#1A1A1A}
-        .zippi-popup-light .leaflet-popup-content-wrapper{background:white;color:#111;border-radius:14px;border:1px solid #ddd;box-shadow:0 4px 20px rgba(0,0,0,.15)}
-        .zippi-popup-light .leaflet-popup-tip{background:white}
+        .zippi-popup .leaflet-popup-content-wrapper{background:rgba(28,28,40,0.92);color:white;border-radius:14px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 4px 24px rgba(0,0,0,.5);backdrop-filter:blur(20px)}
+        .zippi-popup .leaflet-popup-tip{background:rgba(28,28,40,0.92)}
+        .zippi-popup-light .leaflet-popup-content-wrapper{background:rgba(255,255,255,0.95);color:#111;border-radius:14px;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 20px rgba(0,0,0,.12);backdrop-filter:blur(20px)}
+        .zippi-popup-light .leaflet-popup-tip{background:rgba(255,255,255,0.95)}
       `
       document.head.appendChild(s)
     }
@@ -87,51 +100,118 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       .addTo(map)
     map.on('click', e => onMapClick?.(e.latlng.lat, e.latlng.lng))
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
+
+    return () => {
+      map.remove()
+      mapRef.current = null
+      if (containerRef.current) {
+        containerRef.current.innerHTML = ''
+        delete containerRef.current._leaflet_id
+      }
+    }
   }, []) // eslint-disable-line
 
-  // ── Swap tile style only — no map view reset ────────────────
   useEffect(() => {
     tileLayerRef.current?.setUrl(getTileUrl(dark))
   }, [dark])
 
-  // ── Markers & route — dark NOT in deps, uses darkRef ────────
+  /* trânsito — abaixo dos marcadores */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const L_ = layersRef.current
+    L_.traffic.forEach(p => map.removeLayer(p))
+    L_.traffic = []
+
+    if (!showTraffic || !trafficSegments?.length) return
+
+    trafficSegments.forEach(seg => {
+      if (!seg.path?.length) return
+      const op = seg.opacity ?? 0.3
+      const line = L.polyline(seg.path, {
+        color: seg.color,
+        weight: seg.weight ?? 3,
+        opacity: op,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map)
+      L_.traffic.push(line)
+    })
+  }, [showTraffic, trafficSegments])
+
+  /* origem, destino, rota */
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const L_ = layersRef.current
     L_.markers.forEach(m => map.removeLayer(m))
-    L_.polylines.forEach(p => map.removeLayer(p))
-    L_.markers = []; L_.polylines = []
+    L_.routeLines.forEach(p => map.removeLayer(p))
+    L_.routeLines = []
+    L_.markers = []
 
     const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
 
     if (origin) {
-      const m = L.marker([origin.lat,origin.lon], { icon:makePulseIcon(), zIndexOffset:100 })
+      const m = L.marker([origin.lat, origin.lon], { icon:makePulseIcon(), zIndexOffset:100 })
         .bindPopup(`<b>📍 Você está aqui</b><br><small>${origin.label??''}</small>`, { className:pc })
         .addTo(map)
       L_.markers.push(m)
     }
 
-    destinations?.forEach((d,i) => {
+    destinations?.forEach((d, i) => {
       if (!d?.lat) return
-      const m = L.marker([d.lat,d.lon], { icon:makeDestIcon(d.label??`Destino ${i+1}`) })
-        .bindPopup(`<b>🎯 ${d.label??`Destino ${i+1}`}</b>`, { className:pc })
+      const m = L.marker([d.lat, d.lon], { icon:makeDestIcon(d.label ?? `Destino ${i+1}`) })
+        .bindPopup(`<b>🎯 ${d.label ?? `Destino ${i+1}`}</b>`, { className:pc })
         .addTo(map)
       L_.markers.push(m)
     })
 
     if (routePolyline?.length > 1) {
       const outline = L.polyline(routePolyline, { color:'#ffffff', weight:9, opacity:0.3, lineCap:'round', lineJoin:'round' }).addTo(map)
-      const line    = L.polyline(routePolyline, { color:GREEN,    weight:5, opacity:0.9, lineCap:'round', lineJoin:'round' }).addTo(map)
-      L_.polylines.push(outline, line)
-      map.fitBounds(line.getBounds(), { padding:[100, 60] })
-    } else if (origin) {
+      const line    = L.polyline(routePolyline, { color:GREEN, weight:5, opacity:0.9, lineCap:'round', lineJoin:'round' }).addTo(map)
+      L_.routeLines.push(outline, line)
+      if (!placePins?.length) map.fitBounds(line.getBounds(), { padding:[100, 60] })
+    } else if (origin && !placePins?.length) {
       map.setView([origin.lat, origin.lon], 15)
     }
-  }, [origin, destinations, routePolyline]) // ← dark intentionally excluded
+  }, [origin, destinations, routePolyline, placePins?.length])
 
-  // ── Community reports — dark NOT in deps ────────────────────
+  /* pins explorar / hoje */
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const L_ = layersRef.current
+    L_.placePins.forEach(m => map.removeLayer(m))
+    L_.placePins = []
+
+    if (!placePins?.length) return
+
+    const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
+    const bounds = []
+
+    placePins.forEach(pin => {
+      if (!pin.lat || !pin.lon) return
+      const color = pin.color
+        ?? (pin.type === 'event' ? eventPinColor(pin.category) : explorePinColor(pin.category))
+      const m = L.marker([pin.lat, pin.lon], {
+        icon: makePlacePinIcon(pin.emoji ?? '📍', pin.label, color),
+        zIndexOffset: 50,
+      })
+        .bindPopup(`<b>${pin.emoji ?? '📍'} ${pin.label}</b>${pin.desc ? `<br><small>${pin.desc}</small>` : ''}`, { className: pc })
+        .on('click', () => onPinRef.current?.(pin))
+        .addTo(map)
+      L_.placePins.push(m)
+      bounds.push([pin.lat, pin.lon])
+    })
+
+    if (bounds.length > 1) {
+      map.fitBounds(bounds, { padding:[90, 50], maxZoom: 14 })
+    } else if (bounds.length === 1) {
+      map.setView(bounds[0], 14)
+    }
+  }, [placePins])
+
+  /* relatórios comunidade */
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -140,13 +220,13 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     L_.reports = []
     const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
     communityReports?.forEach(r => {
-      const m = L.marker([r.lat,r.lon], { icon:makeIcon(r.emoji,r.color,30) })
-        .bindPopup(`<div style="min-width:160px"><b>${r.emoji} ${r.label}</b>${r.description?`<p style="margin:4px 0;font-size:11px;opacity:.7">${r.description}</p>`:''}<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px"><small style="opacity:.5">${r.upvotes} confirmações</small><button onclick="window.__zippiUpvote?.('${r.id}')" style="background:#3DED7A;color:#0a0a0a;border:none;padding:3px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px">👍</button></div></div>`, { className:pc })
+      const m = L.marker([r.lat, r.lon], { icon:makeIcon(r.emoji, r.color, 30) })
+        .bindPopup(`<div style="min-width:160px"><b>${r.emoji} ${r.label}</b>${r.description ? `<p style="margin:4px 0;font-size:11px;opacity:.7">${r.description}</p>` : ''}<div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px"><small style="opacity:.5">${r.upvotes} confirmações</small><button onclick="window.__zippiUpvote?.('${r.id}')" style="background:#3DED7A;color:#0a0a0a;border:none;padding:3px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:11px">👍</button></div></div>`, { className:pc })
         .addTo(map)
       L_.reports.push(m)
     })
     window.__zippiUpvote = id => upvoteReport(id)
-  }, [communityReports]) // ← dark intentionally excluded
+  }, [communityReports])
 
   useImperativeHandle(ref, () => ({
     flyTo(lat, lon, zoom = 15) {

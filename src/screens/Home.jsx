@@ -11,13 +11,15 @@ import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
 import ServiceDetail   from '../components/ServiceDetail.jsx'
-import { getCurrentPosition, reverseGeocode, searchPlaces, fetchRoute } from '../services/geo.js'
+import { getCurrentPosition, reverseGeocode, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
 import { getWeather }  from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
 import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/explore.js'
 import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
+import { getTrafficSegments, getTrafficSummary } from '../data/traffic.js'
+import { glassSurface, explorePinColor } from '../styles/glass.js'
 
 // ── Constants ────────────────────────────────────────────────────
 const NAV_H      = 60
@@ -81,35 +83,51 @@ function snap(val, points) {
 }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
-// ── Explore Card component ────────────────────────────────────────
-function ExploreCard({ place, catInfo, dark, text, muted, onSelect }) {
+function kmBetween(a, b) {
+  if (!a?.lat || !b?.lat) return Infinity
+  const R = 6371
+  const dLat = (b.lat - a.lat) * Math.PI / 180
+  const dLon = (b.lon - a.lon) * Math.PI / 180
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+/** barra horizontal de notificações / descobertas */
+function FeedBar({ items, dark, pillStyle }) {
+  if (!items.length) return null
   return (
-    <button
-      onClick={() => onSelect(place)}
-      className={`flex-shrink-0 w-40 rounded-2xl overflow-hidden border text-left active:scale-95 transition-all`}
-      style={{ background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}
-    >
-      <div className={`h-20 flex items-center justify-center text-4xl ${dark ? 'bg-white/5' : 'bg-black/4'}`}>
-        {catInfo?.emoji ?? '📍'}
+    <div className="mt-2 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 pb-0.5" style={{ width: 'max-content', minWidth: '100%' }}>
+        {items.map(item => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={item.action}
+            className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-2xl flex-shrink-0 active:scale-[0.97] transition-transform"
+            style={pillStyle}
+          >
+            {item.live && (
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
+            )}
+            <span className="text-sm leading-none">{item.emoji}</span>
+            <span className={`text-[11px] font-semibold whitespace-nowrap max-w-[200px] truncate ${dark ? 'text-white/90' : 'text-gray-800'}`}>
+              {item.text}
+            </span>
+          </button>
+        ))}
       </div>
-      <div className="p-3">
-        <p className={`text-xs font-bold ${text} leading-tight mb-0.5`}>{place.name}</p>
-        <p className={`text-[10px] ${muted} leading-tight`}>{place.desc}</p>
-        {place.freeAccess && (
-          <span className="inline-block mt-1.5 text-[9px] font-black text-zippi-400 bg-zippi-400/10 px-1.5 py-0.5 rounded-md">GRÁTIS</span>
-        )}
-      </div>
-    </button>
+    </div>
   )
 }
 
 // ── Event Card component ─────────────────────────────────────────
-function EventCard({ event, dark, text, muted, onNavigate }) {
+function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
   return (
     <button
       onClick={() => onNavigate(event)}
       className="w-full flex items-start gap-3 p-3 rounded-2xl text-left active:scale-[0.98] transition-all"
-      style={{ background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', border: `1px solid ${dark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)'}` }}
+      style={cardStyle}
     >
       <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
         style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}>
@@ -140,6 +158,7 @@ export default function Home() {
   /* ── GPS / origin ──────────────────────────────────────────── */
   const [origin,      setOrigin]      = useState(null)
   const [originLabel, setOriginLabel] = useState('Detectando localização…')
+  const [location,    setLocation]    = useState({ city:'Porto Alegre', neighborhood:null, street:null })
   const [gpsLoading,  setGpsLoading]  = useState(false)
   const [gpsError,    setGpsError]    = useState(false)
 
@@ -164,7 +183,6 @@ export default function Home() {
 
   /* ── Voice ─────────────────────────────────────────────────── */
   const [showVoice, setShowVoice] = useState(false)
-  const [voicePref, setVoicePref] = useState('balanced')
 
   /* ── Weather ───────────────────────────────────────────────── */
   const [weather, setWeather] = useState(null)
@@ -228,12 +246,16 @@ export default function Home() {
       let pos
       try { pos = await getCurrentPosition(true)
       } catch { pos = await getCurrentPosition(false) }
-      const label = await reverseGeocode(pos.lat, pos.lon)
-      setOrigin({ ...pos, label }); setOriginLabel(label)
+      const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
+      setOrigin({ ...pos, label: loc.label }); setOriginLabel(loc.label)
+      setLocation({ city: loc.city, neighborhood: loc.neighborhood, street: loc.street })
       try { const w = await getWeather(pos.lat, pos.lon); setWeather(w) }
       catch { /* weather optional */ }
     } catch {
-      setGpsError(true); setOriginLabel(POA_DEFAULT.label); setOrigin(POA_DEFAULT)
+      setGpsError(true)
+      setOriginLabel(POA_DEFAULT.label)
+      setOrigin(POA_DEFAULT)
+      setLocation({ city: 'Porto Alegre', neighborhood: 'Centro', street: null })
     } finally { setGpsLoading(false) }
   }
 
@@ -368,15 +390,15 @@ export default function Home() {
   }
   function handleMapClick(lat, lon) {
     if (mapClickMode) {
-      reverseGeocode(lat, lon).then(label => {
-        const next = [...destinations]; next[activeDestIdx] = { label, lat, lon }
+      reverseGeocodeDetailed(lat, lon).then(loc => {
+        const next = [...destinations]; next[activeDestIdx] = { label: loc.label, lat, lon }
         setDestinations(next)
       })
       setMapClickMode(false)
     } else { setReportCoords({ lat, lon }); setShowReportModal(true) }
   }
   async function handleVoiceResult({ destination, preference }) {
-    setVoicePref(preference); setActiveFilter(preference)
+    setActiveFilter(preference)
     setActiveDestIdx(0); setFocus(true); setActiveTab('ir')
     const places = await searchPlaces(destination, origin?.lat, origin?.lon)
     if (places.length > 0) selectPlace(places[0])
@@ -386,27 +408,139 @@ export default function Home() {
   const hasValidDest = destinations.some(d => d.lat)
   const isCombined   = activeFilter === 'combined'
 
-  // Contextual AI insight
   const insight = useMemo(() => getContextualInsight(hour, weather, dayOfWeek, origin), [hour, weather, dayOfWeek])
 
-  // Surface system:
-  // Dark  → solid surfaces with meaningful contrast (dark-indigo family, not near-black)
-  // Light → glass (backdrop-blur) for iOS aesthetic
-  const GLASS_BG     = dark ? '#23243A'              : 'rgba(248,248,252,0.93)'
-  const GLASS_BLUR   = dark ? 'none'                 : 'blur(24px) saturate(160%)'
+  const glassPrimary   = useMemo(() => glassSurface(dark, 'primary'), [dark])
+  const glassSecondary = useMemo(() => glassSurface(dark, 'secondary'), [dark])
+  const glassPill      = useMemo(() => glassSurface(dark, 'pill'), [dark])
   const GLASS_BORDER = dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)'
-  const CARD_BG      = dark ? '#2E2F4A'              : 'rgba(0,0,0,0.04)'
-  const CARD_BORDER  = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)'
+  const cardStyle    = glassSecondary
+
+  const trafficSegments = useMemo(() => getTrafficSegments(hour, dayOfWeek), [hour, dayOfWeek])
+  const trafficSummary  = useMemo(() => getTrafficSummary(trafficSegments), [trafficSegments])
+  const showTraffic     = activeTab === 'ir' && sheetState === 'search'
+
+  const eventsFiltered = useMemo(() => (
+    (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
+      .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
+  ), [exploreCity, eventCat])
+
+  const mapPins = useMemo(() => {
+    if (activeTab === 'explorar') {
+      const places = exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES
+      return places
+        .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
+        .map(p => ({
+          id: p.id,
+          lat: p.lat,
+          lon: p.lon,
+          label: p.name,
+          desc: p.desc,
+          emoji: EXPLORE_CATEGORIES.find(c => c.id === p.category)?.emoji ?? '📍',
+          category: p.category,
+          color: explorePinColor(p.category),
+          type: 'explore',
+          place: p,
+        }))
+    }
+    if (activeTab === 'hoje') {
+      return eventsFiltered
+        .filter(e => e.lat)
+        .map(e => ({
+          id: `ev-${e.id}`,
+          lat: e.lat,
+          lon: e.lon,
+          label: e.title,
+          desc: `${e.local} · ${e.time}`,
+          emoji: e.emoji,
+          category: e.cat,
+          color: null,
+          type: 'event',
+          event: e,
+        }))
+    }
+    return []
+  }, [activeTab, exploreCity, exploreCategory, eventsFiltered])
+
+  const feedItems = useMemo(() => {
+    const items = []
+
+    if (weather?.warn) {
+      items.push({
+        id: 'weather',
+        emoji: weather.emoji ?? '⛈️',
+        text: `Chuva · ${weather.temp}°C — evite veículos abertos`,
+        live: true,
+        action: () => {},
+      })
+    }
+
+    if (showTraffic && trafficSummary) {
+      items.push({
+        id: 'traffic',
+        emoji: trafficSummary.emoji,
+        text: trafficSummary.text,
+        action: () => {},
+      })
+    }
+
+    const nearbyPlaces = (exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
+      .filter(p => origin && kmBetween(origin, p) < 2.5)
+      .slice(0, 3)
+    nearbyPlaces.forEach(p => {
+      const cat = EXPLORE_CATEGORIES.find(c => c.id === p.category)
+      items.push({
+        id: `near-${p.id}`,
+        emoji: cat?.emoji ?? '📍',
+        text: `Perto de você · ${p.name}`,
+        action: () => {
+          switchTab('explorar')
+          mapRef.current?.flyTo(p.lat, p.lon, 15)
+        },
+      })
+    })
+
+    eventsFiltered.filter(e => e.highlight || e.price === 'Grátis').slice(0, 3).forEach(ev => {
+      items.push({
+        id: `feed-ev-${ev.id}`,
+        emoji: ev.emoji,
+        text: `${ev.title} · ${ev.time}`,
+        live: !!ev.highlight,
+        action: () => navigateToEvent(ev),
+      })
+    })
+
+    if (insight && items.length < 6) {
+      items.push({
+        id: 'insight',
+        emoji: insight.emoji,
+        text: insight.msg,
+        action: () => {
+          if (insight.cta === 'Ver eventos') switchTab('hoje')
+          else switchTab('explorar')
+        },
+      })
+    }
+
+    return items.slice(0, 8)
+  }, [weather, showTraffic, trafficSummary, origin, exploreCity, eventsFiltered, insight])
+
+  function handlePlacePinClick(pin) {
+    if (pin.type === 'event' && pin.event) {
+      navigateToEvent(pin.event)
+      return
+    }
+    if (pin.place) {
+      selectPlace({ label: pin.place.name, lat: pin.place.lat, lon: pin.place.lon })
+      expandSheet(SNAP.mid)
+    }
+  }
 
   // Text class helpers
   const text  = dark ? 'text-white'    : 'text-gray-900'
   const muted = dark ? 'text-white/50' : 'text-gray-500'
   const dim   = dark ? 'text-white/30' : 'text-gray-400'
   const pill  = 'w-10 h-10 rounded-2xl flex items-center justify-center active:scale-90 transition-transform shadow-md'
-
-  // Filtered events
-  const eventsFiltered = (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
-    .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
 
   /* ═══════════════════════════════════════════════════════════ */
   return (
@@ -422,75 +556,53 @@ export default function Home() {
           destinations={destinations.filter(d => d.lat)}
           routePolyline={routeData?.polyline}
           communityReports={reports}
+          placePins={mapPins}
+          trafficSegments={trafficSegments}
+          showTraffic={showTraffic}
           onMapClick={handleMapClick}
+          onPlacePinClick={handlePlacePinClick}
           dark={dark}
         />
       </div>
 
       {/* ── TOP GRADIENT ─────────────────────────────────────────── */}
       <div className="absolute top-0 inset-x-0 pointer-events-none z-10"
-        style={{ height:180, background:'linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%)' }}
+        style={{ height:220, background:'linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%)' }}
       />
 
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
       <div className="absolute top-0 inset-x-0 z-[25] px-4 pt-12 pb-2 pointer-events-auto">
         <div className="flex items-start justify-between gap-3">
-
-          {/* Location pill */}
-          <button onClick={detectGPS}
-            className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5 min-w-0 flex-1 active:scale-95 transition-transform"
-            style={{ background:'rgba(0,0,0,0.52)', backdropFilter:'blur(20px)', border:'1px solid rgba(255,255,255,0.12)' }}
-          >
-            <div className="relative flex-shrink-0 w-3 h-3">
-              <div className={`absolute inset-0 rounded-full ${gpsError ? 'bg-orange-400' : 'bg-zippi-400'}`} />
-              {!gpsError && <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-50" />}
-            </div>
-            <div className="min-w-0 text-left">
-              <p className="text-[9px] text-white/50 font-bold uppercase tracking-wider leading-none mb-0.5">
-                {gpsError ? 'GPS negado · toque para tentar' : 'Você está em'}
+          <button onClick={detectGPS} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity">
+            <p className={`text-xl font-black ${dark ? 'text-white' : 'text-gray-900'} leading-none`}>Zippi</p>
+            <p className={`text-[10px] font-bold uppercase tracking-wider mt-1 ${dark ? 'text-white/40' : 'text-gray-400'}`}>
+              {gpsLoading ? '…' : location.city}
+            </p>
+            {location.neighborhood && (
+              <p className={`text-sm font-semibold truncate leading-tight mt-0.5 ${dark ? 'text-white' : 'text-gray-900'}`}>
+                {location.neighborhood}
               </p>
-              <p className="text-xs font-semibold text-white truncate leading-tight">
-                {gpsLoading ? 'Detectando…' : originLabel}
-              </p>
-            </div>
-            {gpsLoading && <div className="flex-shrink-0 w-3 h-3 border-2 border-zippi-400 border-t-transparent rounded-full animate-spin" />}
+            )}
+            <p className={`text-xs truncate leading-tight ${dark ? 'text-white/55' : 'text-gray-500'}`}>
+              {gpsLoading ? 'Detectando localização…' : (location.street || originLabel.split(',')[0])}
+            </p>
           </button>
 
-          {/* Action buttons */}
           <div className="flex gap-1.5 flex-shrink-0">
-            <button onClick={toggle}
-              className={pill}
-              style={{ background:'rgba(0,0,0,0.48)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.12)' }}
-            >
-              {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-slate-200" />}
+            <button onClick={toggle} className={pill} style={glassPill}>
+              {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-gray-700" />}
             </button>
-            <button onClick={() => { setReportCoords(origin); setShowReportModal(true) }}
-              className={pill}
-              style={{ background:'rgba(0,0,0,0.48)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.12)' }}
-            >
+            <button onClick={() => { setReportCoords(origin); setShowReportModal(true) }} className={pill} style={glassPill}>
               <TriangleAlert size={16} className="text-orange-400" />
             </button>
-            <button onClick={centerOnUser}
-              className={pill}
-              style={{ background:'rgba(0,0,0,0.48)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.12)' }}
-              aria-label="Centralizar no usuário"
-            >
-              <Crosshair size={16} className="text-white" />
+            <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="Centralizar no usuário">
+              <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
             </button>
           </div>
         </div>
 
-        {/* Weather strip */}
-        {weather && (
-          <div className={`mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-sm`}
-            style={{ background: weather.warn ? 'rgba(113,63,18,0.7)' : 'rgba(0,0,0,0.38)', backdropFilter:'blur(12px)', borderColor: weather.warn ? 'rgba(234,179,8,0.4)' : 'rgba(255,255,255,0.1)' }}
-          >
-            <span className="text-sm leading-none">{weather.emoji}</span>
-            <span className="text-xs font-semibold text-white">{weather.label}</span>
-            <span className="text-xs text-white/55">{weather.temp}°C</span>
-            {weather.warn && <span className="text-xs text-yellow-300 font-semibold">· Evite veículos abertos</span>}
-          </div>
-        )}
+        {/* barra de atualizações */}
+        <FeedBar items={feedItems} dark={dark} pillStyle={glassPill} />
 
         {/* Map click banner */}
         {mapClickMode && (
@@ -501,26 +613,6 @@ export default function Home() {
           </div>
         )}
       </div>
-
-      {/* ── CONTEXTUAL AI FLOAT CARD ──────────────────────────────── */}
-      {isSheetExpanded && activeTab === 'ir' && sheetState === 'search' && !focus && insight && (
-        <div className="absolute left-4 right-4 z-[25] pointer-events-auto"
-          style={{ bottom: `calc(var(--sheet-h, 120px) + 56px)` }}
-        >
-          <button
-            onClick={() => { if (insight.cta === 'Ver eventos') switchTab('hoje'); else if (insight.cta.includes('Explorar')) switchTab('explorar') }}
-            className="flex items-center gap-3 px-4 py-3 rounded-2xl w-full text-left active:scale-95 transition-all"
-            style={{ background:'rgba(0,0,0,0.55)', backdropFilter:'blur(24px)', border:'1px solid rgba(255,255,255,0.12)', boxShadow:'0 4px 24px rgba(0,0,0,0.3)' }}
-          >
-            <span className="text-2xl flex-shrink-0">{insight.emoji}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white leading-tight">{insight.msg}</p>
-              <p className="text-[10px] text-zippi-400 font-semibold mt-0.5">{insight.cta} →</p>
-            </div>
-            <Zap size={14} className="text-zippi-400 flex-shrink-0" />
-          </button>
-        </div>
-      )}
 
       {/* ── BOTÃO IA (acima da dock, direita) ─────────────────────── */}
       <div
@@ -546,14 +638,9 @@ export default function Home() {
         style={{
           bottom: NAV_H,
           height: sheetH,
-          background: GLASS_BG,
-          backdropFilter: GLASS_BLUR,
-          WebkitBackdropFilter: GLASS_BLUR,
+          ...glassPrimary,
           borderRadius: '28px 28px 0 0',
-          borderTop: `1px solid ${GLASS_BORDER}`,
-          borderLeft: `1px solid ${GLASS_BORDER}`,
-          borderRight: `1px solid ${GLASS_BORDER}`,
-          boxShadow: '0 -8px 48px rgba(0,0,0,0.3)',
+          borderBottom: 'none',
           transition: 'height 0.35s cubic-bezier(0.32,0.72,0,1)',
         }}
       >
@@ -571,19 +658,25 @@ export default function Home() {
         {isSheetExpanded && (
           <>
             {activeTab === 'ir' && sheetState === 'search' && !focus && (
-              <div className="flex-shrink-0 px-5 pb-3 flex items-center justify-between">
-                <div>
-                  <p className={`text-lg font-black ${text}`}>
-                    {getGreeting(hour)} {weather?.emoji ?? '👋'}
-                  </p>
-                  <p className={`text-xs ${muted}`}>
-                    {weather ? `${weather.temp}°C · ${weather.label}` : 'Porto Alegre, RS'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-black text-zippi-400 uppercase tracking-widest">IA Zippi</p>
-                  <p className={`text-[10px] ${muted}`}>Copiloto urbano ativo</p>
-                </div>
+              <div className="flex-shrink-0 px-5 pb-3">
+                <p className={`text-lg font-black ${text}`}>{getGreeting(hour)} 👋</p>
+                <button
+                  onClick={() => { if (insight.cta === 'Ver eventos') switchTab('hoje'); else switchTab('explorar') }}
+                  className="mt-2 w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl text-left active:scale-[0.98] transition-all"
+                  style={glassSecondary}
+                >
+                  <span className="text-lg">{insight.emoji}</span>
+                  <p className={`text-xs font-medium ${text} flex-1`}>{insight.msg}</p>
+                  <ChevronRight size={14} className="text-zippi-400" />
+                </button>
+              </div>
+            )}
+            {(activeTab === 'explorar' || activeTab === 'hoje') && (
+              <div className="flex-shrink-0 px-5 pb-2">
+                <p className={`text-sm font-black ${text}`}>
+                  {activeTab === 'explorar' ? 'Explorar' : 'Hoje'}
+                  <span className={`font-normal ${muted}`}> · toque nos pins do mapa</span>
+                </p>
               </div>
             )}
 
@@ -598,7 +691,7 @@ export default function Home() {
 
                   {/* Route card */}
                   <div className="rounded-2xl overflow-hidden mb-3"
-                    style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                    style={cardStyle}>
                     {/* Origin */}
                     <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: `1px solid ${CARD_BORDER}` }}>
                       <div className="relative flex-shrink-0 w-3 h-3">
@@ -606,45 +699,48 @@ export default function Home() {
                         <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-40" />
                       </div>
                       <p className={`text-sm ${muted} truncate flex-1`}>{originLabel}</p>
-                      <Crosshair size={12} className="text-zippi-400 flex-shrink-0 opacity-50" />
                     </div>
 
-                    {/* Destination rows */}
+                    {/* Destinos — edição pela dock */}
                     {destinations.map((dest, i) => (
-                      <div key={i} className="flex items-center gap-3 px-4 py-3"
-                        style={{ borderBottom: i < destinations.length - 1 ? `1px solid ${CARD_BORDER}` : 'none' }}
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setActiveDestIdx(i)
+                          if (!dest.lat) { dockInputRef.current?.focus(); expandSheet(SNAP.full) }
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left active:opacity-80 ${dark ? 'active:bg-white/5' : 'active:bg-black/5'}`}
+                        style={{ borderBottom: i < destinations.length - 1 ? `1px solid ${GLASS_BORDER}` : 'none' }}
                       >
                         <div className={`w-3 h-3 rounded-sm flex-shrink-0 ${i === destinations.length - 1 ? 'bg-red-400' : 'bg-orange-400'}`} />
-                        <input
-                          type="text"
-                          placeholder={i === 0 ? 'Para onde?' : `Parada ${i+1}`}
-                          value={activeDestIdx === i ? query : dest.label}
-                          onChange={e => { setActiveDestIdx(i); setQuery(e.target.value) }}
-                          onFocus={() => { setActiveDestIdx(i); setFocus(true); expandSheet(SNAP.full) }}
-                          onBlur={() => setTimeout(() => { setFocus(false); if (sheetState === 'search') animateSheet(SNAP.peek) }, 150)}
-                          className={`flex-1 bg-transparent text-sm font-medium outline-none ${dest.lat ? text : muted}`}
-                        />
+                        <span className={`flex-1 text-sm font-medium truncate ${dest.label ? text : muted}`}>
+                          {dest.label || (i === 0 ? 'Toque na barra abaixo para buscar destino' : `Parada ${i + 1}`)}
+                        </span>
                         {dest.lat ? (
-                          <button onClick={() => removeDestination(i)}>
+                          <span onClick={e => { e.stopPropagation(); removeDestination(i) }} className="p-1">
                             <X size={14} className={`${muted} opacity-60`} />
-                          </button>
+                          </span>
                         ) : (
-                          <button onClick={() => setMapClickMode(true)} className="flex-shrink-0">
-                            <span className="text-xs text-zippi-400 font-semibold">📍 Mapa</span>
-                          </button>
+                          <span className="text-xs text-zippi-400 font-semibold">Editar</span>
                         )}
-                      </div>
+                      </button>
                     ))}
 
-                    {destinations.length < 3 && (
-                      <button onClick={addDestination}
-                        className="w-full flex items-center gap-2 px-4 py-2.5"
-                        style={{ borderTop: `1px solid ${CARD_BORDER}` }}
-                      >
-                        <Plus size={13} className="text-zippi-400" />
-                        <span className="text-xs text-zippi-400 font-semibold">Adicionar parada</span>
+                    <div className="flex border-t" style={{ borderColor: GLASS_BORDER }}>
+                      {destinations.length < 3 && (
+                        <button onClick={addDestination}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 active:opacity-70">
+                          <Plus size={13} className="text-zippi-400" />
+                          <span className="text-xs text-zippi-400 font-semibold">Parada</span>
+                        </button>
+                      )}
+                      <button onClick={() => setMapClickMode(true)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 active:opacity-70"
+                        style={destinations.length < 3 ? { borderLeft: `1px solid ${GLASS_BORDER}` } : {}}>
+                        <span className="text-xs text-zippi-400 font-semibold">📍 No mapa</span>
                       </button>
-                    )}
+                    </div>
                   </div>
 
                   {/* Search dropdown */}
@@ -673,7 +769,7 @@ export default function Home() {
                           <button key={s.label}
                             onClick={() => selectPlace({ label:s.address, lat:s.lat, lon:s.lon })}
                             className="flex-1 flex items-center gap-2.5 rounded-2xl px-3 py-3 active:scale-95 transition-transform"
-                            style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}` }}
+                            style={cardStyle}
                           >
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base flex-shrink-0"
                               style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
@@ -693,7 +789,7 @@ export default function Home() {
                             className={`flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors text-left ${dark ? 'active:bg-white/5' : 'active:bg-black/5'}`}
                           >
                             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                              style={{ background: CARD_BG }}>🕐</div>
+                              style={glassSecondary}>🕐</div>
                             <div className="flex-1 min-w-0">
                               <p className={`text-sm font-semibold ${text}`}>{r.label}</p>
                               <p className={`text-xs ${muted} truncate`}>{r.address}</p>
@@ -702,39 +798,14 @@ export default function Home() {
                         ))}
                       </div>
 
-                      {/* Quick explore teaser */}
-                      <div className="rounded-2xl p-4 mb-2"
-                        style={{ background:'linear-gradient(135deg, rgba(61,237,122,0.12) 0%, rgba(61,237,122,0.04) 100%)', border:'1px solid rgba(61,237,122,0.2)' }}
+                      <button
+                        onClick={() => switchTab('explorar')}
+                        className="w-full mt-2 flex items-center justify-between px-4 py-3 rounded-2xl active:scale-[0.98] transition-all"
+                        style={{ ...glassSecondary, border: '1px solid rgba(61,237,122,0.25)' }}
                       >
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <p className="text-xs font-black text-zippi-400">Explorar Porto Alegre</p>
-                            <p className={`text-[10px] ${muted}`}>Descubra o que a cidade tem</p>
-                          </div>
-                          <button onClick={() => switchTab('explorar')}
-                            className="text-[10px] font-black text-zippi-400 flex items-center gap-0.5"
-                          >Ver tudo <ChevronRight size={10} /></button>
-                        </div>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                          {EXPLORE_PLACES.slice(0, 4).map(place => {
-                            const cat = EXPLORE_CATEGORIES.find(c => c.id === place.category)
-                            return (
-                              <button key={place.id}
-                                onClick={() => selectPlace({ label:place.name, lat:place.lat, lon:place.lon })}
-                                className="flex-shrink-0 flex flex-col items-center gap-1.5 active:scale-95 transition-all"
-                              >
-                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
-                                  style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}>
-                                  {cat?.emoji ?? '📍'}
-                                </div>
-                                <span className={`text-[10px] font-semibold ${text} text-center max-w-[56px] leading-tight`}>
-                                  {place.name.split(' ').slice(0,2).join(' ')}
-                                </span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
+                        <span className={`text-xs font-semibold ${text}`}>Explorar a cidade</span>
+                        <ChevronRight size={14} className="text-zippi-400" />
+                      </button>
                     </>
                   )}
                 </div>
@@ -744,7 +815,7 @@ export default function Home() {
               {sheetState === 'loading' && (
                 <div className="px-5 pt-3 pb-6">
                   <div className="flex items-center gap-3 rounded-2xl px-4 py-3 mb-5"
-                    style={{ background: CARD_BG, border: `1px solid ${CARD_BORDER}` }}>
+                    style={cardStyle}>
                     <div className="w-2 h-2 rounded-full bg-red-400 flex-shrink-0" />
                     <p className={`text-sm font-semibold ${text} flex-1 truncate`}>{destinations[0]?.label}</p>
                     <button onClick={backToSearch} className={`text-xs ${muted}`}>✕ Cancelar</button>
@@ -787,14 +858,14 @@ export default function Home() {
                   <div className="flex items-center gap-3 px-5 pt-1 pb-3">
                     <button onClick={backToSearch}
                       className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: CARD_BG }}>
+                      style={glassSecondary}>
                       <ArrowLeft size={15} className={muted} />
                     </button>
                     <div className="flex-1 min-w-0">
                       <p className={`text-xs ${muted} truncate`}>{originLabel}</p>
                       <p className={`text-sm font-bold ${text} truncate`}>{destinations[0]?.label}</p>
                     </div>
-                    <div className="flex-shrink-0 px-2.5 py-1 rounded-xl" style={{ background: CARD_BG }}>
+                    <div className="flex-shrink-0 px-2.5 py-1 rounded-xl" style={glassSecondary}>
                       <p className={`text-xs font-bold ${text}`}>{resultKm} km</p>
                     </div>
                   </div>
@@ -816,7 +887,7 @@ export default function Home() {
                       {FILTERS.map(f => (
                         <button key={f.id} onClick={() => changeFilter(f.id)}
                           className={`flex-shrink-0 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-zippi-400 text-dark-950 shadow shadow-zippi-900/30' : ''}`}
-                          style={activeFilter !== f.id ? { background: CARD_BG, border: `1px solid ${CARD_BORDER}`, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                          style={activeFilter !== f.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
                         >
                           {f.label}
                         </button>
@@ -841,7 +912,7 @@ export default function Home() {
                   {isCombined ? (
                     <div className="px-5 flex flex-col gap-4">
                       {combos.length === 0 ? (
-                        <div className="rounded-3xl p-8 text-center" style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}>
+                        <div className="rounded-3xl p-8 text-center" style={cardStyle}>
                           <p className="text-3xl mb-3">🔀</p>
                           <p className={`font-bold ${text} mb-1`}>Nenhuma combinação</p>
                           <p className={`text-xs ${muted}`}>Para esta distância, um único serviço já é ideal.</p>
@@ -878,7 +949,7 @@ export default function Home() {
             <div className="pb-4">
               {/* City selector */}
               <div className="px-5 mb-4">
-                <div className="flex gap-2 p-1 rounded-2xl" style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}>
+                <div className="flex gap-2 p-1 rounded-2xl" style={cardStyle}>
                   {[{ id:'poa', label:'🌆 Porto Alegre' }, { id:'gramado', label:'🏔 Gramado' }].map(c => (
                     <button key={c.id} onClick={() => setExploreCity(c.id)}
                       className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${exploreCity === c.id ? 'bg-zippi-400 text-dark-950 shadow' : ''}`}
@@ -913,7 +984,7 @@ export default function Home() {
                       className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
                         exploreCategory === cat.id ? 'bg-zippi-400 text-dark-950' : ''
                       }`}
-                      style={exploreCategory !== cat.id ? { background: CARD_BG, border:`1px solid ${CARD_BORDER}`, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                      style={exploreCategory !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
                     >
                       <span className="text-[13px]">{cat.emoji}</span>
                       <span>{cat.label}</span>
@@ -929,24 +1000,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Horizontal scroll: featured cards */}
-              <div className="px-5">
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-3">
-                  {(exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
-                    .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
-                    .map(place => {
-                      const cat = EXPLORE_CATEGORIES.find(c => c.id === place.category)
-                      return (
-                        <ExploreCard
-                          key={place.id} place={place} catInfo={cat}
-                          dark={dark} text={text} muted={muted}
-                          onSelect={p => selectPlace({ label:p.name, lat:p.lat, lon:p.lon })}
-                        />
-                      )
-                    })}
-                </div>
-              </div>
-
               {/* List view */}
               <div className="px-5 flex flex-col gap-2">
                 {(exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
@@ -957,7 +1010,7 @@ export default function Home() {
                       <button key={place.id}
                         onClick={() => selectPlace({ label:place.name, lat:place.lat, lon:place.lon })}
                         className="flex items-center gap-3 p-3 rounded-2xl text-left active:scale-[0.98] transition-all"
-                        style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}
+                        style={cardStyle}
                       >
                         <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
                           style={{ background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
@@ -992,7 +1045,7 @@ export default function Home() {
                   </p>
                 </div>
                 {/* City toggle */}
-                <div className="flex gap-1 p-0.5 rounded-xl" style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}>
+                <div className="flex gap-1 p-0.5 rounded-xl" style={cardStyle}>
                   {[{ id:'poa', label:'POA' }, { id:'gramado', label:'GRM' }].map(c => (
                     <button key={c.id} onClick={() => setExploreCity(c.id)}
                       className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${exploreCity === c.id ? 'bg-zippi-400 text-dark-950' : ''}`}
@@ -1034,7 +1087,7 @@ export default function Home() {
                   {EVENT_CATS.map(cat => (
                     <button key={cat.id} onClick={() => setEventCat(cat.id)}
                       className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${eventCat === cat.id ? 'bg-zippi-400 text-dark-950' : ''}`}
-                      style={eventCat !== cat.id ? { background: CARD_BG, border:`1px solid ${CARD_BORDER}`, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                      style={eventCat !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
                     >
                       <span className="text-[12px]">{cat.emoji}</span>
                       <span>{cat.label}</span>
@@ -1054,7 +1107,7 @@ export default function Home() {
                 ) : eventsFiltered.map(ev => (
                   <EventCard
                     key={ev.id} event={ev}
-                    dark={dark} text={text} muted={muted}
+                    dark={dark} text={text} muted={muted} cardStyle={cardStyle}
                     onNavigate={navigateToEvent}
                   />
                 ))}
@@ -1062,7 +1115,7 @@ export default function Home() {
 
               {/* ODS badge */}
               <div className="mx-5 mt-4 flex items-center gap-2 px-4 py-3 rounded-2xl"
-                style={{ background: CARD_BG, border:`1px solid ${CARD_BORDER}` }}>
+                style={cardStyle}>
                 <span className="text-lg">🌐</span>
                 <p className={`text-xs ${muted}`}>
                   Eventos locais apoiam os <span className="text-zippi-400 font-bold">ODS 8, 10 e 11</span> — economia local, inclusão e cidades sustentáveis.
@@ -1117,18 +1170,12 @@ export default function Home() {
                 if (activeTab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
               }, 150)}
               className={`flex-1 h-11 px-4 rounded-2xl text-sm font-medium outline-none ${text}`}
-              style={{
-                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-                border: `1px solid ${CARD_BORDER}`,
-              }}
+              style={glassSecondary}
             />
             <button
               onClick={() => setShowVoice(true)}
               className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
-              style={{
-                background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                border: `1px solid ${CARD_BORDER}`,
-              }}
+              style={glassSecondary}
               aria-label="Falar com Zippi"
             >
               <Mic size={20} className={dark ? 'text-white' : 'text-gray-700'} />
@@ -1144,9 +1191,7 @@ export default function Home() {
         className="absolute bottom-0 inset-x-0 z-[30]"
         style={{
           height: NAV_H,
-          background: GLASS_BG,
-          backdropFilter: GLASS_BLUR,
-          WebkitBackdropFilter: GLASS_BLUR,
+          ...glassPrimary,
           borderTop: `1px solid ${GLASS_BORDER}`,
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
