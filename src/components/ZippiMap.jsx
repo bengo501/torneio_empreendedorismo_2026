@@ -1,4 +1,4 @@
-import { useEffect, useRef, memo } from 'react'
+import { useEffect, useRef, memo, forwardRef, useImperativeHandle } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { upvoteReport } from '../services/community.js'
@@ -43,9 +43,9 @@ function makeDestIcon(label='') {
 
 // memo prevents re-render from parent state changes (e.g. theme toggle)
 // that don't affect map data — the map ref persists across renders.
-const ZippiMap = memo(function ZippiMap({
+const ZippiMap = memo(forwardRef(function ZippiMap({
   origin, destinations, routePolyline, communityReports, onMapClick, dark, className='',
-}) {
+}, ref) {
   const containerRef = useRef(null)
   const mapRef       = useRef(null)
   const tileLayerRef = useRef(null)
@@ -63,10 +63,11 @@ const ZippiMap = memo(function ZippiMap({
       s.id = 'zippi-map-css'
       s.textContent = `
         @keyframes zippiPulse{0%{transform:scale(1);opacity:.35}70%{transform:scale(2.8);opacity:0}100%{transform:scale(2.8);opacity:0}}
-        .leaflet-container{font-family:Inter,system-ui,sans-serif}
-        .leaflet-control-zoom{border:none!important;box-shadow:0 2px 12px rgba(0,0,0,.2)!important;border-radius:12px!important;overflow:hidden}
-        .leaflet-control-zoom a{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(8px);color:#111!important;border:none!important;font-size:18px!important;line-height:30px!important;width:32px!important;height:32px!important}
-        .leaflet-control-zoom a:hover{background:#fff!important}
+        .leaflet-container{font-family:Inter,system-ui,sans-serif;z-index:0!important}
+        .leaflet-pane{z-index:1!important}
+        .leaflet-tile-pane{z-index:1!important}
+        .leaflet-marker-pane{z-index:2!important}
+        .leaflet-popup-pane{z-index:3!important}
         .leaflet-control-attribution{background:rgba(0,0,0,.35)!important;backdrop-filter:blur(4px);border-radius:8px 0 0 0!important;color:rgba(255,255,255,.7)!important;font-size:9px!important}
         .leaflet-control-attribution a{color:rgba(255,255,255,.9)!important}
         .zippi-popup .leaflet-popup-content-wrapper{background:#1A1A1A;color:white;border-radius:14px;border:1px solid #333;box-shadow:0 4px 24px rgba(0,0,0,.5)}
@@ -81,7 +82,6 @@ const ZippiMap = memo(function ZippiMap({
     const map = L.map(containerRef.current, { center, zoom:15, zoomControl:false, attributionControl:false })
     const tileLayer = L.tileLayer(getTileUrl(dark), { maxZoom:19 }).addTo(map)
     tileLayerRef.current = tileLayer
-    L.control.zoom({ position:'topright' }).addTo(map)
     L.control.attribution({ position:'bottomleft', prefix:false })
       .addAttribution('© <a href="https://carto.com">CARTO</a> © <a href="https://osm.org">OSM</a>')
       .addTo(map)
@@ -148,6 +148,12 @@ const ZippiMap = memo(function ZippiMap({
     window.__zippiUpvote = id => upvoteReport(id)
   }, [communityReports]) // ← dark intentionally excluded
 
+  useImperativeHandle(ref, () => ({
+    flyTo(lat, lon, zoom = 15) {
+      mapRef.current?.setView([lat, lon], zoom, { animate: true })
+    },
+  }))
+
   return (
     <div
       ref={containerRef}
@@ -155,6 +161,6 @@ const ZippiMap = memo(function ZippiMap({
       style={{ isolation:'isolate', minHeight:200 }}
     />
   )
-})
+}))
 
 export default ZippiMap

@@ -11,7 +11,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <ErrorBoundary>
-    <div className="max-w-sm mx-auto min-h-dvh relative overflow-x-hidden bg-white dark:bg-dark-950">
+    <div className="w-full max-w-sm mx-auto min-h-dvh relative overflow-x-hidden bg-white dark:bg-dark-950">
       <Routes>
         <Route path="/"        element={<Splash   />} />
         <Route path="/login"   element={<Login    />} />

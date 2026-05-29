@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Crosshair, Plus, X, TriangleAlert,
   Sun, Moon, Mic, ArrowLeft, ChevronRight,
-  Compass, CalendarDays, User2, Zap,
+  Compass, CalendarDays, User2, Zap, Sparkles,
 } from 'lucide-react'
 import ZippiMap        from '../components/ZippiMap.jsx'
 import CommunityModal  from '../components/CommunityModal.jsx'
@@ -20,7 +20,15 @@ import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/exp
 import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
 
 // ── Constants ────────────────────────────────────────────────────
-const NAV_H = 60 // bottom nav bar height in px
+const NAV_H      = 60
+const HANDLE_H   = 28
+const DOCK_BAR_H = 56
+
+function computeSnap() {
+  const avail = window.innerHeight - NAV_H
+  const peek  = HANDLE_H + DOCK_BAR_H + 10
+  return { peek, mid: Math.round(avail * 0.48), full: Math.round(avail * 0.88) }
+}
 
 const POA_DEFAULT = { lat: -30.0346, lon: -51.2177, label: 'Porto Alegre, RS' }
 
@@ -183,18 +191,17 @@ export default function Home() {
   const [selected,  setSelected]  = useState(null)
 
   /* ── Draggable bottom sheet ────────────────────────────────── */
-  const sheetRef  = useRef(null)
-  const dragState = useRef({ active:false, startY:0, startH:0 })
+  const sheetRef      = useRef(null)
+  const mapRef        = useRef(null)
+  const dockInputRef  = useRef(null)
+  const dragState     = useRef({ active:false, startY:0, startH:0 })
+  const pendingCenter = useRef(false)
 
-  const SNAP = useMemo(() => {
-    const avail = window.innerHeight - NAV_H
-    return { peek: 90, mid: Math.round(avail * 0.48), full: Math.round(avail * 0.88) }
-  }, [])
+  const SNAP = useMemo(() => computeSnap(), [])
 
-  const [sheetH, setSheetH] = useState(() => {
-    const avail = window.innerHeight - NAV_H
-    return Math.round(avail * 0.48)
-  })
+  const [sheetH, setSheetH] = useState(() => computeSnap().peek)
+
+  const isSheetExpanded = sheetH > SNAP.peek + 20
 
   // CSS var = total height from screen bottom to sheet top (for FAB)
   useEffect(() => {
@@ -206,6 +213,13 @@ export default function Home() {
     detectGPS()
     setReports(getReports())
   }, [])
+
+  useEffect(() => {
+    if (origin && pendingCenter.current) {
+      mapRef.current?.flyTo(origin.lat, origin.lon)
+      pendingCenter.current = false
+    }
+  }, [origin])
 
   /* ── GPS (Firefox-safe two-pass) ───────────────────────────── */
   async function detectGPS() {
@@ -247,7 +261,8 @@ export default function Home() {
     setDestinations(next)
     setQuery(''); setResults([]); setFocus(false)
     setActiveTab('ir')
-  }, [destinations, activeDestIdx])
+    if (sheetState === 'search') animateSheet(SNAP.peek)
+  }, [destinations, activeDestIdx, sheetState, SNAP.peek])
 
   /* ── Navigation (Ir tab) ───────────────────────────────────── */
   function startNavigation() {
@@ -276,13 +291,30 @@ export default function Home() {
     const prefs = FILTERS.find(f => f.id === fId)?.prefs
     setRanked(getRankedServices(resultKm, prefs))
   }
-  function backToSearch() { setSheetState('search'); setSelected(null); animateSheet(SNAP.mid) }
+  function backToSearch() { setSheetState('search'); setSelected(null); animateSheet(SNAP.peek) }
+
+  function centerOnUser() {
+    pendingCenter.current = true
+    if (origin) mapRef.current?.flyTo(origin.lat, origin.lon)
+    detectGPS()
+  }
+
+  function expandSheet(target = SNAP.full) {
+    animateSheet(target)
+  }
+
+  function dockPlaceholder() {
+    if (activeTab === 'explorar') return 'Buscar lugares para explorar…'
+    if (activeTab === 'hoje')     return 'Buscar eventos de hoje…'
+    return 'Puxe para explorar ou pergunte à IA…'
+  }
 
   /* ── Tab navigation ────────────────────────────────────────── */
   function switchTab(tab) {
     if (tab === 'perfil') { navigate('/profile'); return }
     setActiveTab(tab)
-    if (tab !== 'ir' || sheetState !== 'search') animateSheet(SNAP.mid)
+    if (tab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
+    else animateSheet(SNAP.mid)
   }
 
   /* ── Event navigate to Ir tab ──────────────────────────────── */
@@ -385,6 +417,7 @@ export default function Home() {
       {/* ── MAP ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0 z-0" style={{ isolation:'isolate' }}>
         <ZippiMap
+          ref={mapRef}
           origin={origin}
           destinations={destinations.filter(d => d.lat)}
           routePolyline={routeData?.polyline}
@@ -400,7 +433,7 @@ export default function Home() {
       />
 
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
-      <div className="absolute top-0 inset-x-0 z-20 px-4 pt-12 pb-2 pointer-events-auto">
+      <div className="absolute top-0 inset-x-0 z-[25] px-4 pt-12 pb-2 pointer-events-auto">
         <div className="flex items-start justify-between gap-3">
 
           {/* Location pill */}
@@ -437,10 +470,12 @@ export default function Home() {
             >
               <TriangleAlert size={16} className="text-orange-400" />
             </button>
-            <button onClick={() => navigate('/profile')}
-              className="w-10 h-10 rounded-2xl bg-zippi-400 flex items-center justify-center active:scale-90 transition-transform shadow-md shadow-zippi-900/40"
+            <button onClick={centerOnUser}
+              className={pill}
+              style={{ background:'rgba(0,0,0,0.48)', backdropFilter:'blur(16px)', border:'1px solid rgba(255,255,255,0.12)' }}
+              aria-label="Centralizar no usuário"
             >
-              <span className="text-[11px] font-black text-dark-950 select-none">JS</span>
+              <Crosshair size={16} className="text-white" />
             </button>
           </div>
         </div>
@@ -468,9 +503,9 @@ export default function Home() {
       </div>
 
       {/* ── CONTEXTUAL AI FLOAT CARD ──────────────────────────────── */}
-      {activeTab === 'ir' && sheetState === 'search' && !focus && insight && (
-        <div className="absolute left-4 right-4 z-10 pointer-events-auto"
-          style={{ bottom: `calc(var(--sheet-h, 340px) + 12px)` }}
+      {isSheetExpanded && activeTab === 'ir' && sheetState === 'search' && !focus && insight && (
+        <div className="absolute left-4 right-4 z-[25] pointer-events-auto"
+          style={{ bottom: `calc(var(--sheet-h, 120px) + 56px)` }}
         >
           <button
             onClick={() => { if (insight.cta === 'Ver eventos') switchTab('hoje'); else if (insight.cta.includes('Explorar')) switchTab('explorar') }}
@@ -487,16 +522,19 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── VOICE FAB ─────────────────────────────────────────────── */}
-      <div className="absolute right-4 z-20 flex flex-col items-center gap-1 pointer-events-auto"
-        style={{ bottom:'calc(var(--sheet-h, 340px) + 16px)', transition:'bottom 0.35s cubic-bezier(0.32,0.72,0,1)' }}
+      {/* ── BOTÃO IA (acima da dock, direita) ─────────────────────── */}
+      <div
+        className="absolute right-4 z-[25] pointer-events-auto"
+        style={{ bottom: `calc(var(--sheet-h, 94px) + 10px)`, transition: 'bottom 0.35s cubic-bezier(0.32,0.72,0,1)' }}
       >
-        <button onClick={() => setShowVoice(true)}
-          className="w-14 h-14 rounded-full bg-zippi-400 shadow-2xl shadow-zippi-900/50 flex items-center justify-center active:scale-90 transition-transform border-2 border-white/20"
+        <button
+          onClick={() => setShowVoice(true)}
+          className="w-12 h-12 rounded-2xl flex items-center justify-center active:scale-90 transition-transform shadow-lg"
+          style={{ background: '#E8B84B', border: '1px solid rgba(255,255,255,0.15)' }}
+          aria-label="Chat com IA"
         >
-          <Mic size={26} className="text-dark-950" />
+          <Sparkles size={22} className="text-dark-950" strokeWidth={2.2} />
         </button>
-        <span className="text-[9px] font-bold text-white" style={{ textShadow:'0 1px 4px rgba(0,0,0,0.8)' }}>Falar</span>
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
@@ -504,7 +542,7 @@ export default function Home() {
       {/* ════════════════════════════════════════════════════════════ */}
       <div
         ref={sheetRef}
-        className="absolute inset-x-0 z-20 flex flex-col"
+        className="absolute inset-x-0 z-[25] flex flex-col"
         style={{
           bottom: NAV_H,
           height: sheetH,
@@ -521,33 +559,35 @@ export default function Home() {
       >
         {/* Drag handle */}
         <div
-          className="flex-shrink-0 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+          className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none"
+          style={{ height: HANDLE_H }}
           onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}
           onMouseDown={onDragStart}  onMouseMove={onDragMove}  onMouseUp={onDragEnd} onMouseLeave={onDragEnd}
         >
           <div className="w-10 h-1 rounded-full" style={{ background: dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.18)' }} />
         </div>
 
-        {/* ── Contextual greeting (shown in Ir/search mode) ─────── */}
-        {activeTab === 'ir' && sheetState === 'search' && !focus && (
-          <div className="flex-shrink-0 px-5 pb-3 flex items-center justify-between">
-            <div>
-              <p className={`text-lg font-black ${text}`}>
-                {getGreeting(hour)} {weather?.emoji ?? '👋'}
-              </p>
-              <p className={`text-xs ${muted}`}>
-                {weather ? `${weather.temp}°C · ${weather.label}` : 'Porto Alegre, RS'}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[9px] font-black text-zippi-400 uppercase tracking-widest">IA Zippi</p>
-              <p className={`text-[10px] ${muted}`}>Copiloto urbano ativo</p>
-            </div>
-          </div>
-        )}
+        {/* Conteúdo expansível (oculto no modo recuado) */}
+        {isSheetExpanded && (
+          <>
+            {activeTab === 'ir' && sheetState === 'search' && !focus && (
+              <div className="flex-shrink-0 px-5 pb-3 flex items-center justify-between">
+                <div>
+                  <p className={`text-lg font-black ${text}`}>
+                    {getGreeting(hour)} {weather?.emoji ?? '👋'}
+                  </p>
+                  <p className={`text-xs ${muted}`}>
+                    {weather ? `${weather.temp}°C · ${weather.label}` : 'Porto Alegre, RS'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-zippi-400 uppercase tracking-widest">IA Zippi</p>
+                  <p className={`text-[10px] ${muted}`}>Copiloto urbano ativo</p>
+                </div>
+              </div>
+            )}
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="flex-1 overflow-y-auto min-h-0">
 
           {/* ══════════ TAB: IR ══════════ */}
           {activeTab === 'ir' && (
@@ -580,8 +620,8 @@ export default function Home() {
                           placeholder={i === 0 ? 'Para onde?' : `Parada ${i+1}`}
                           value={activeDestIdx === i ? query : dest.label}
                           onChange={e => { setActiveDestIdx(i); setQuery(e.target.value) }}
-                          onFocus={() => { setActiveDestIdx(i); setFocus(true); animateSheet(SNAP.full) }}
-                          onBlur={() => setTimeout(() => { setFocus(false); animateSheet(SNAP.mid) }, 150)}
+                          onFocus={() => { setActiveDestIdx(i); setFocus(true); expandSheet(SNAP.full) }}
+                          onBlur={() => setTimeout(() => { setFocus(false); if (sheetState === 'search') animateSheet(SNAP.peek) }, 150)}
                           className={`flex-1 bg-transparent text-sm font-medium outline-none ${dest.lat ? text : muted}`}
                         />
                         {dest.lat ? (
@@ -1031,27 +1071,77 @@ export default function Home() {
             </div>
           )}
 
-        </div>
+            </div>
 
-        {/* ── Sticky CTA (Ir tab, search state) ─────────────────── */}
-        {activeTab === 'ir' && sheetState === 'search' && hasValidDest && (
-          <div className="flex-shrink-0 px-5 pb-4 pt-2"
-            style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
-            <button onClick={startNavigation}
-              className="w-full py-4 rounded-2xl bg-zippi-400 text-dark-950 font-black text-base flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-zippi-900/30"
+            {/* CTA rotas (Ir tab expandida) */}
+            {activeTab === 'ir' && sheetState === 'search' && hasValidDest && (
+              <div className="flex-shrink-0 px-5 pb-2 pt-2">
+                <button onClick={startNavigation}
+                  className="w-full py-4 rounded-2xl bg-zippi-400 text-dark-950 font-black text-base flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-zippi-900/30"
+                >
+                  <Search size={18} />
+                  {routeData ? `Ver opções — ${routeData.distanceKm} km` : 'Ver melhores opções'}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Dock recuada: busca + falar (sempre visível) ──────── */}
+        <div
+          className="flex-shrink-0 px-4 pt-1"
+          style={{
+            height: DOCK_BAR_H,
+            borderTop: isSheetExpanded ? `1px solid ${GLASS_BORDER}` : 'none',
+          }}
+        >
+          <div className="flex items-center gap-2.5 h-11">
+            <input
+              ref={dockInputRef}
+              type="text"
+              placeholder={dockPlaceholder()}
+              value={activeTab === 'ir' && (focus || !destinations[0]?.label) ? query : (destinations[0]?.label || query)}
+              onChange={e => {
+                setActiveTab('ir')
+                setActiveDestIdx(0)
+                setQuery(e.target.value)
+              }}
+              onFocus={() => {
+                setActiveTab('ir')
+                setActiveDestIdx(0)
+                setFocus(true)
+                expandSheet(SNAP.full)
+              }}
+              onBlur={() => setTimeout(() => {
+                setFocus(false)
+                if (activeTab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
+              }, 150)}
+              className={`flex-1 h-11 px-4 rounded-2xl text-sm font-medium outline-none ${text}`}
+              style={{
+                background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                border: `1px solid ${CARD_BORDER}`,
+              }}
+            />
+            <button
+              onClick={() => setShowVoice(true)}
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+              style={{
+                background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                border: `1px solid ${CARD_BORDER}`,
+              }}
+              aria-label="Falar com Zippi"
             >
-              <Search size={18} />
-              {routeData ? `Ver opções — ${routeData.distanceKm} km` : 'Ver melhores opções'}
+              <Mic size={20} className={dark ? 'text-white' : 'text-gray-700'} />
             </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
       {/* GLASS BOTTOM NAV BAR                                        */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div
-        className="absolute bottom-0 inset-x-0 z-30"
+        className="absolute bottom-0 inset-x-0 z-[30]"
         style={{
           height: NAV_H,
           background: GLASS_BG,
