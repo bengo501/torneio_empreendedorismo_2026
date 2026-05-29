@@ -146,3 +146,8 @@ export function getTrafficSummary(segments) {
 export function isCriticalTraffic(level) {
   return level === 'heavy' || level === 'severe'
 }
+
+/** alerta no topo: apenas congestionamento severo */
+export function isAlertTraffic(level) {
+  return level === 'severe'
+}

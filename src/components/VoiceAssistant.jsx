@@ -50,15 +50,24 @@ const PREF_LABELS = {
   eco:      '🌿 Eco / Passeio',
 }
 
-const EXAMPLES = [
-  '"Vai para o Parque Ibirapuera"',
+const EXAMPLES_CHAT = [
+  '"Vai para o Parque da Redenção"',
   '"Me leva ao aeroporto mais rápido"',
-  '"Quero ir à USP economizando"',
-  '"Leva pra Berrini de forma ecológica"',
+  '"Quero ir ao centro economizando"',
+  '"Leva à UFRGS de forma ecológica"',
+]
+
+const EXAMPLES_GUIDE = [
+  '"O que tem perto de mim agora?"',
+  '"Me recomenda um parque para passear"',
+  '"Onde tem farmácia aberta perto?"',
+  '"Qual o melhor jeito de ir ao centro?"',
 ]
 
 /* ─── Component ─────────────────────────────────────────── */
-export default function VoiceAssistant({ onResult, onClose }) {
+export default function VoiceAssistant({ onResult, onClose, mode = 'chat' }) {
+  const isGuide = mode === 'guide'
+  const EXAMPLES = isGuide ? EXAMPLES_GUIDE : EXAMPLES_CHAT
   const { dark } = useTheme()
   // idle | listening | result | error | nosupport
   const [status,     setStatus]     = useState('idle')
@@ -126,9 +135,13 @@ export default function VoiceAssistant({ onResult, onClose }) {
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h3 className={`text-xl font-black ${text}`}>Assistente Zippi 🎙️</h3>
+              <h3 className={`text-xl font-black ${text}`}>
+                {isGuide ? 'Guia IA Zippi' : 'Chat por voz'}
+              </h3>
               <p className={`text-sm ${muted} mt-0.5`}>
-                Fale para onde quer ir e como prefere ir
+                {isGuide
+                  ? 'Pergunte sobre lugares, rotas e o que fazer na cidade'
+                  : 'Fale seu destino e como prefere se deslocar'}
               </p>
             </div>
             <button
@@ -150,7 +163,9 @@ export default function VoiceAssistant({ onResult, onClose }) {
               </button>
               <div className="text-center">
                 <p className={`text-base font-bold ${text} mb-1`}>Toque e fale</p>
-                <p className={`text-sm ${muted}`}>Diga seu destino e preferência</p>
+                <p className={`text-sm ${muted}`}>
+                  {isGuide ? 'Faça uma pergunta à guia' : 'Diga destino e preferência'}
+                </p>
               </div>
               <div className={`w-full ${bg2} rounded-2xl p-4`}>
                 <p className={`text-xs font-bold ${muted} uppercase tracking-widest mb-3`}>Exemplos</p>

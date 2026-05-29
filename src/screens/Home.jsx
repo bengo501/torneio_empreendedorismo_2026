@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, Crosshair, Plus, X, TriangleAlert,
+  Search, Crosshair, Plus, X, MapPin,
   Sun, Moon, Mic, ArrowLeft, ChevronRight,
   Compass, CalendarDays, User2, Zap, Sparkles,
+  ShoppingBag, Cross, UtensilsCrossed, Heart,
 } from 'lucide-react'
 import ZippiMap           from '../components/ZippiMap.jsx'
 import NotificationsDock  from '../components/NotificationsDock.jsx'
@@ -14,13 +15,14 @@ import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
 import ServiceDetail   from '../components/ServiceDetail.jsx'
 import { getCurrentPosition, reverseGeocode, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
-import { getWeather }  from '../services/weather.js'
+import { getWeather, isSevereWeather } from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
 import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/explore.js'
 import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
-import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isCriticalTraffic } from '../data/traffic.js'
+import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isAlertTraffic } from '../data/traffic.js'
+import { ESSENTIAL_SERVICES } from '../data/essentials.js'
 import { fetchNatureFeatures } from '../services/overpass.js'
 import { glassSurface, explorePinColor } from '../styles/glass.js'
 
@@ -159,14 +161,14 @@ export default function Home() {
   const [reportCoords,    setReportCoords]    = useState(null)
   const [pinCreationMode, setPinCreationMode] = useState(false)
 
-  /* ── Voice ─────────────────────────────────────────────────── */
-  const [showVoice, setShowVoice] = useState(false)
+  /* ── Voice: chat (dock) | guide (botão ia) ─────────────────── */
+  const [voiceMode, setVoiceMode] = useState(null) // null | 'chat' | 'guide'
 
   /* ── Weather ───────────────────────────────────────────────── */
   const [weather, setWeather] = useState(null)
 
   /* ── Navigation tabs ───────────────────────────────────────── */
-  // 'ir' | 'explorar' | 'hoje'
+  // 'ir' | 'explorar' | 'hoje' | 'essenciais'
   const [activeTab, setActiveTab] = useState('ir')
 
   /* ── Explore ───────────────────────────────────────────────── */
@@ -210,6 +212,20 @@ export default function Home() {
     setReports(getReports())
   }, [])
 
+  async function refreshWeather(lat, lon) {
+    try {
+      const w = await getWeather(lat, lon)
+      setWeather(w)
+    } catch { /* opcional */ }
+  }
+
+  useEffect(() => {
+    if (!origin?.lat || !origin?.lon) return
+    refreshWeather(origin.lat, origin.lon)
+    const iv = setInterval(() => refreshWeather(origin.lat, origin.lon), 15 * 60 * 1000)
+    return () => clearInterval(iv)
+  }, [origin?.lat, origin?.lon])
+
   useEffect(() => {
     if (origin && pendingCenter.current) {
       mapRef.current?.flyTo(origin.lat, origin.lon)
@@ -227,8 +243,7 @@ export default function Home() {
       const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
       setOrigin({ ...pos, label: loc.label }); setOriginLabel(loc.label)
       setLocation({ city: loc.city, neighborhood: loc.neighborhood, street: loc.street })
-      try { const w = await getWeather(pos.lat, pos.lon); setWeather(w) }
-      catch { /* weather optional */ }
+      await refreshWeather(pos.lat, pos.lon)
     } catch {
       setGpsError(true)
       setOriginLabel(POA_DEFAULT.label)
@@ -306,15 +321,38 @@ export default function Home() {
   function dockPlaceholder() {
     if (activeTab === 'explorar') return 'Buscar lugares para explorar…'
     if (activeTab === 'hoje')     return 'Buscar eventos de hoje…'
-    return 'Puxe para explorar ou pergunte à IA…'
+    if (activeTab === 'essenciais') return 'Buscar farmácias, mercados…'
+    return 'Para onde você quer ir?'
   }
 
   /* ── Tab navigation ────────────────────────────────────────── */
   function switchTab(tab) {
-    if (tab === 'perfil') { navigate('/profile'); return }
     setActiveTab(tab)
     if (tab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
     else animateSheet(SNAP.mid)
+  }
+
+  async function openEssentialService(service) {
+    setActiveTab('ir')
+    setActiveDestIdx(0)
+    setFocus(true)
+    setQuery(service.query)
+    expandSheet(SNAP.full)
+    const places = await searchPlaces(service.query, origin?.lat, origin?.lon)
+    setResults(places)
+  }
+
+  async function handleGuideVoiceResult({ destination }) {
+    setActiveTab('explorar')
+    expandSheet(SNAP.mid)
+    const places = await searchPlaces(destination, origin?.lat, origin?.lon)
+    if (places.length > 0) {
+      mapRef.current?.flyTo(places[0].lat, places[0].lon, 15)
+    } else {
+      setQuery(destination)
+      setFocus(true)
+      expandSheet(SNAP.full)
+    }
   }
 
   /* ── Event navigate to Ir tab ──────────────────────────────── */
@@ -501,28 +539,35 @@ export default function Home() {
 
   const alerts = useMemo(() => {
     const items = []
-    if (weather?.warn) {
+    if (isSevereWeather(weather)) {
       items.push({
         id: 'alert-weather',
         emoji: weather.emoji ?? '⛈️',
-        text: `Clima · ${weather.label} · ${weather.temp}°C`,
+        text: `${weather.label} · ${weather.temp}°`,
         type: 'weather',
       })
     }
     trafficSegments
-      .filter(s => isCriticalTraffic(s.level))
+      .filter(s => isAlertTraffic(s.level))
       .slice(0, 4)
       .forEach(s => {
         items.push({
           id: `alert-traffic-${s.id}`,
           emoji: '🚗',
-          text: `Trânsito · ${s.name} · ${s.label}`,
+          text: `Congestionado · ${s.name}`,
           type: 'traffic',
           segment: s,
         })
       })
     return items
   }, [weather, trafficSegments])
+
+  const ESSENTIAL_ICONS = {
+    farmacia: Cross,
+    mercado: ShoppingBag,
+    restaurante: UtensilsCrossed,
+    saude: Heart,
+  }
 
   function handleNotificationClick(item) {
     if (item.kind === 'nearby' && item.place) {
@@ -554,7 +599,7 @@ export default function Home() {
   const text  = dark ? 'text-white'    : 'text-gray-900'
   const muted = dark ? 'text-white/50' : 'text-gray-500'
   const dim   = dark ? 'text-white/30' : 'text-gray-400'
-  const pill  = 'w-10 h-10 rounded-2xl flex items-center justify-center active:scale-90 transition-transform shadow-md'
+  const pill  = 'w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform shadow-md'
 
   /* ═══════════════════════════════════════════════════════════ */
   return (
@@ -583,17 +628,30 @@ export default function Home() {
 
       {/* ── TOP GRADIENT ─────────────────────────────────────────── */}
       <div className="absolute top-0 inset-x-0 pointer-events-none z-10"
-        style={{ height:220, background:'linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%)' }}
+        style={{
+          height: 220,
+          background: dark
+            ? 'linear-gradient(to bottom,rgba(0,0,0,0.65) 0%,transparent 100%)'
+            : 'linear-gradient(to bottom,rgba(255,255,255,0.55) 0%,transparent 100%)',
+        }}
       />
 
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
-      <div className="absolute top-0 inset-x-0 z-[40] px-4 pt-12 pb-2 pointer-events-none flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-3 pointer-events-auto">
-          <button onClick={detectGPS} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity">
-            <p className={`text-xl font-semibold truncate leading-tight ${dark ? 'text-white' : 'text-gray-900'}`}>
+      <div className="absolute top-0 inset-x-0 z-[40] px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1 pointer-events-none flex flex-col gap-1">
+        <div className="pointer-events-auto">
+          <NotificationsDock
+            items={notificationItems}
+            dark={dark}
+            onItemClick={handleNotificationClick}
+          />
+        </div>
+
+        <div className="flex items-start justify-between gap-2 pointer-events-auto">
+          <button onClick={detectGPS} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity pr-1">
+            <p className={`text-lg font-semibold truncate leading-tight ${dark ? 'text-white' : 'text-black'}`}>
               {gpsLoading ? 'localizando…' : (location.city || 'porto alegre')}
             </p>
-            <p className={`text-xs truncate leading-snug mt-1 ${dark ? 'text-white/60' : 'text-gray-500'}`}>
+            <p className={`text-[11px] truncate leading-snug mt-0.5 ${dark ? 'text-white/60' : 'text-black'}`}>
               {gpsLoading
                 ? 'detectando localização…'
                 : [
@@ -604,38 +662,39 @@ export default function Home() {
             </p>
           </button>
 
-          <div className="flex gap-1.5 flex-shrink-0">
-            <button onClick={toggle} className={pill} style={glassPill} aria-label="alternar tema">
-              {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-gray-700" />}
-            </button>
-            <button
-              onClick={togglePinCreationMode}
-              className={pill}
-              style={{
-                ...glassPill,
-                ...(pinCreationMode ? { boxShadow: '0 0 0 2px rgba(255,149,0,0.8)' } : {}),
-              }}
-              aria-label="criar pin ou aviso"
-              title="criar pin/aviso"
-            >
-              <TriangleAlert size={16} className={pinCreationMode ? 'text-orange-300' : 'text-orange-400'} />
-            </button>
-            <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="centralizar no usuário">
-              <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
-            </button>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <div className="flex gap-1 flex-shrink-0">
+              <button onClick={toggle} className={pill} style={glassPill} aria-label="alternar tema">
+                {dark ? <Sun size={16} className="text-yellow-300" /> : <Moon size={16} className="text-gray-700" />}
+              </button>
+              <button
+                onClick={togglePinCreationMode}
+                className={pill}
+                style={{
+                  ...glassPill,
+                  ...(pinCreationMode ? { boxShadow: '0 0 0 2px rgba(61,237,122,0.85)' } : {}),
+                }}
+                aria-label="criar pin ou aviso"
+                title="criar pin/aviso"
+              >
+                <MapPin size={16} className={pinCreationMode ? 'text-zippi-400' : dark ? 'text-zippi-400' : 'text-gray-800'} />
+              </button>
+              <button onClick={centerOnUser} className={pill} style={glassPill} aria-label="centralizar no usuário">
+                <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
+              </button>
+              <button onClick={() => navigate('/profile')} className={pill} style={glassPill} aria-label="perfil">
+                <User2 size={16} className={dark ? 'text-white' : 'text-gray-800'} />
+              </button>
+            </div>
+            {alerts.length > 0 && (
+              <AlertsDock
+                alerts={alerts}
+                dark={dark}
+                compact
+                onAlertClick={handleAlertClick}
+              />
+            )}
           </div>
-        </div>
-
-        <div className="pointer-events-auto">
-          <NotificationsDock
-            items={notificationItems}
-            dark={dark}
-            onItemClick={handleNotificationClick}
-          />
-        </div>
-
-        <div className="pointer-events-auto">
-          <AlertsDock alerts={alerts} dark={dark} onAlertClick={handleAlertClick} />
         </div>
 
         {mapClickMode && (
@@ -662,10 +721,11 @@ export default function Home() {
         style={{ bottom: `calc(var(--sheet-h, 94px) + 10px)`, transition: 'bottom 0.35s cubic-bezier(0.32,0.72,0,1)' }}
       >
         <button
-          onClick={() => setShowVoice(true)}
+          onClick={() => setVoiceMode('guide')}
           className="w-12 h-12 rounded-2xl flex items-center justify-center active:scale-90 transition-transform shadow-lg"
           style={{ background: '#E8B84B', border: '1px solid rgba(255,255,255,0.15)' }}
-          aria-label="Chat com IA"
+          aria-label="Guia inteligência artificial"
+          title="Guia IA"
         >
           <Sparkles size={22} className="text-dark-950" strokeWidth={2.2} />
         </button>
@@ -713,11 +773,13 @@ export default function Home() {
                 </button>
               </div>
             )}
-            {(activeTab === 'explorar' || activeTab === 'hoje') && (
+            {(activeTab === 'explorar' || activeTab === 'hoje' || activeTab === 'essenciais') && (
               <div className="flex-shrink-0 px-5 pb-2">
                 <p className={`text-sm font-black ${text}`}>
-                  {activeTab === 'explorar' ? 'Explorar' : 'Hoje'}
-                  <span className={`font-normal ${muted}`}> · toque nos pins do mapa</span>
+                  {activeTab === 'explorar' ? 'Explorar' : activeTab === 'hoje' ? 'Hoje' : 'Essenciais'}
+                  {activeTab !== 'essenciais' && (
+                    <span className={`font-normal ${muted}`}> · toque nos pins do mapa</span>
+                  )}
                 </p>
               </div>
             )}
@@ -1073,6 +1135,48 @@ export default function Home() {
             </div>
           )}
 
+          {/* ══════════ TAB: ESSENCIAIS ══════════ */}
+          {activeTab === 'essenciais' && (
+            <div className="pb-4 px-5">
+              <p className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${muted}`}>
+                serviços básicos
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {ESSENTIAL_SERVICES.map(svc => {
+                  const Icon = ESSENTIAL_ICONS[svc.id] ?? ShoppingBag
+                  return (
+                    <button
+                      key={svc.id}
+                      type="button"
+                      onClick={() => openEssentialService(svc)}
+                      className="flex flex-col items-start gap-2 p-3.5 rounded-2xl text-left active:scale-[0.98] transition-all"
+                      style={{
+                        ...cardStyle,
+                        border: `1px solid ${dark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.2)'}`,
+                      }}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center"
+                        style={{ background: 'rgba(59,130,246,0.15)' }}
+                      >
+                        <Icon size={18} className="text-blue-400" strokeWidth={2} />
+                      </div>
+                      <div>
+                        <p className={`text-sm font-bold ${text}`}>{svc.label}</p>
+                        <p className="text-[10px] font-semibold text-blue-400 mt-0.5">
+                          {svc.nearby} próximos · {svc.distanceKm} km
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+              <p className={`text-xs ${muted} mt-4 leading-relaxed`}>
+                farmácias, mercados, restaurantes e saúde perto de você em porto alegre.
+              </p>
+            </div>
+          )}
+
           {/* ══════════ TAB: HOJE ══════════ */}
           {activeTab === 'hoje' && (
             <div className="pb-4">
@@ -1215,10 +1319,11 @@ export default function Home() {
               style={glassSecondary}
             />
             <button
-              onClick={() => setShowVoice(true)}
+              onClick={() => setVoiceMode('chat')}
               className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
               style={glassSecondary}
-              aria-label="Falar com Zippi"
+              aria-label="Chat por voz"
+              title="Falar no chat"
             >
               <Mic size={20} className={dark ? 'text-white' : 'text-gray-700'} />
             </button>
@@ -1240,12 +1345,12 @@ export default function Home() {
       >
         <div className="flex items-center justify-around h-full px-2">
           {[
-            { id:'ir',       icon: Zap,         label:'Ir'       },
-            { id:'explorar', icon: Compass,      label:'Explorar' },
-            { id:'hoje',     icon: CalendarDays, label:'Hoje'     },
-            { id:'perfil',   icon: User2,        label:'Perfil'   },
+            { id:'ir',          icon: Zap,          label:'Ir'          },
+            { id:'explorar',    icon: Compass,     label:'Explorar'    },
+            { id:'hoje',        icon: CalendarDays, label:'Hoje'        },
+            { id:'essenciais',  icon: ShoppingBag, label:'Essenciais'  },
           ].map(({ id, icon: Icon, label }) => {
-            const isActive = activeTab === id && id !== 'perfil'
+            const isActive = activeTab === id
             return (
               <button key={id}
                 onClick={() => switchTab(id)}
@@ -1270,10 +1375,11 @@ export default function Home() {
           onAdded={() => setReports(getReports())}
         />
       )}
-      {showVoice && (
+      {voiceMode && (
         <VoiceAssistant
-          onResult={handleVoiceResult}
-          onClose={() => setShowVoice(false)}
+          mode={voiceMode}
+          onResult={voiceMode === 'guide' ? handleGuideVoiceResult : handleVoiceResult}
+          onClose={() => setVoiceMode(null)}
         />
       )}
       {selected && (

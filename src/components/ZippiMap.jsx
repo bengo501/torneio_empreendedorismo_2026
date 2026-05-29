@@ -185,10 +185,8 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
         fillOpacity: 1,
         weight: 1.5,
         opacity: 0.7,
+        interactive: false,
       })
-      if (f.name) {
-        layer.bindTooltip(f.name, { permanent: false, direction: 'top', className: 'zippi-nature-tip' })
-      }
       layer.addTo(map)
       L_.nature.push(layer)
     })

@@ -50,3 +50,13 @@ function weatherLabel(code, rainProb) {
   if (rainProb > 20) return `Possível chuva (${rainProb}%)`
   return 'Tempo bom'
 }
+
+/** alerta grave: chuva forte, tempestade ou previsão muito ruim */
+export function isSevereWeather(w) {
+  if (!w) return false
+  if ((w.code ?? 0) >= 80) return true
+  if ((w.code ?? 0) >= 61) return true
+  if (w.isRaining && (w.rainProb ?? 0) >= 50) return true
+  if ((w.rainProb ?? 0) >= 65) return true
+  return false
+}
