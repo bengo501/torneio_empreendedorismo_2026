@@ -31,6 +31,20 @@ npm run dev
 
 acesse: http://localhost:5173/home
 
+### variáveis locais
+
+copie `.env.example` → `.env` e preencha `VITE_SYMPLA_TOKEN` se quiser eventos sympla.
+
+## deploy na vercel
+
+guia completo: [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)
+
+resumo:
+
+1. importe o repo em [vercel.com/new](https://vercel.com/new)
+2. adicione `VITE_SYMPLA_TOKEN` nas environment variables
+3. deploy → acesse `https://<projeto>.vercel.app/home`
+
 ## estrutura
 
 ```

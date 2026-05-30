@@ -2,6 +2,10 @@
 
 documentação de todas as apis que o zippi utiliza ou planeja utilizar.
 
+guia de chaves e parcerias: [CHAVES_API.md](./CHAVES_API.md)
+
+lugares próximos sem google: [LUGARES_APIS.md](./LUGARES_APIS.md)
+
 ## status das integrações
 
 | api | status | uso no zippi |
@@ -12,7 +16,7 @@ documentação de todas as apis que o zippi utiliza ou planeja utilizar.
 | open-meteo | ativo | clima local |
 | carto tiles | ativo | mapa base |
 | gbfs (whoosh/lime) | parcial | patinetes e bikes |
-| sympla | planejado | eventos e ingressos |
+| sympla | ativo (token) | eventos por cidade na aba hoje |
 | ticketmaster | planejado | shows e eventos pagos |
 | bilhetin | planejado | ingressos locais |
 | google maps places | planejado | pois comerciais |
@@ -87,13 +91,16 @@ documentação de todas as apis que o zippi utiliza ou planeja utilizar.
 
 ---
 
-## eventos (planejado)
+## eventos
 
 ### sympla
 
-- **url:** `https://api.sympla.com.br/public/v4`
-- **uso:** eventos culturais, workshops, shows locais
-- **dados:** título, local, data, preço, coordenadas
+- **url:** `https://api.sympla.com.br` (proxy dev: `/api/sympla`)
+- **autenticação:** header `s_token` — variável `VITE_SYMPLA_TOKEN` (ver `.env.example`)
+- **arquivo:** `src/services/sympla.js`
+- **endpoints tentados:** `/partners/events?city=&state=` e `/public/v1.5.1/events` (filtro por cidade no cliente)
+- **fallback:** `src/data/events.js` quando sem token ou api vazia
+- **cors:** proxy no `vite.config.js` (dev) e rewrite `/api/sympla` no `vercel.json` (produção)
 
 ### ticketmaster / bilhetin
 

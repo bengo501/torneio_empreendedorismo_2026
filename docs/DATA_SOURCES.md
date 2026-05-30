@@ -17,7 +17,7 @@ de onde o zippi obtém cada tipo de informação exibida ao usuário.
 | patinetes/bikes | gbfs | array vazio | `scooters.js` |
 | clima | open-meteo | — | `weather.js` |
 | lugares explorar | dados curados + osm | `explore.js` | `data/explore.js` |
-| eventos hoje | dados simulados | sympla (futuro) | `data/events.js` |
+| eventos hoje | sympla + curadoria local | sympla api (`VITE_SYMPLA_TOKEN`) | `services/sympla.js`, `data/events.js` |
 | transporte | cálculo local + deeplinks | — | `services.js`, `deeplinks.js` |
 | relatos comunidade | localStorage | — | `community.js` |
 

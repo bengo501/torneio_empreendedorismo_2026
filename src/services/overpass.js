@@ -27,14 +27,23 @@ function writeCache(key, data) {
   } catch { /* quota */ }
 }
 
+const FALLBACK_ENDPOINT = 'https://overpass.kumi.systems/api/interpreter'
+
 async function runQuery(query) {
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  })
-  if (!res.ok) throw new Error(`overpass ${res.status}`)
-  return res.json()
+  for (const endpoint of [ENDPOINT, FALLBACK_ENDPOINT]) {
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+      })
+      if (!res.ok) throw new Error(`overpass ${res.status}`)
+      return res.json()
+    } catch {
+      /* tenta próximo servidor */
+    }
+  }
+  throw new Error('overpass unavailable')
 }
 
 function wayToCoords(element) {
@@ -190,28 +199,30 @@ export async function searchNearbyAmenities(tags, lat, lon, radiusMeters = 3000)
   try {
     const data = await runQuery(query)
     const results = (data.elements || [])
-      .filter(el => el.tags?.name)
       .map(el => {
         const elLat = el.lat ?? el.center?.lat
         const elLon = el.lon ?? el.center?.lon
         if (!elLat || !elLon) return null
         const tags_ = el.tags || {}
+        const name = tags_.name || tags_.brand || tags_.operator
+        if (!name) return null
         const addr = [
           tags_['addr:street'],
           tags_['addr:housenumber'],
           tags_['addr:suburb'] || tags_['addr:neighbourhood'],
         ].filter(Boolean).join(', ')
         const distanceKm = haversine(lat, lon, elLat, elLon)
-        const label = addr ? `${tags_.name}, ${addr}` : tags_.name
+        const label = addr ? `${name}, ${addr}` : name
         return {
           label,
-          fullLabel: `${tags_.name} — ${addr || 'Porto Alegre'}`,
+          fullLabel: `${name} — ${addr || 'próximo'}`,
           lat: elLat,
           lon: elLon,
           distanceKm,
         }
       })
       .filter(Boolean)
+      .filter(p => p.distanceKm <= radiusMeters / 1000 + 0.5)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, 8)
 

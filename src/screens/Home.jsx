@@ -23,7 +23,9 @@ import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_BENTO } from '../data/explo
 import { EVENTS_TODAY, EVENTS_BENTO, EVENT_CATS } from '../data/events.js'
 import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isAlertTraffic } from '../data/traffic.js'
 import { ESSENTIAL_SERVICES } from '../data/essentials.js'
-import { fetchNatureFeatures, searchNearbyAmenities, fetchBusStops } from '../services/overpass.js'
+import { fetchNatureFeatures, fetchBusStops } from '../services/overpass.js'
+import { searchEssentials } from '../services/essentialsSearch.js'
+import { fetchSymplaEvents, hasSymplaToken } from '../services/sympla.js'
 import { fetchNearbyScooters } from '../services/scooters.js'
 import { glassSurface, explorePinColor } from '../styles/glass.js'
 
@@ -129,26 +131,31 @@ const ESSENTIAL_ICONS_MAP = {
 // ── Event Card component ─────────────────────────────────────────
 function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
   return (
-    <button
-      onClick={() => onNavigate(event)}
-      className="w-full flex items-start gap-3 p-3 rounded-2xl text-left active:scale-[0.98] transition-all"
-      style={cardStyle}
-    >
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-        style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}>
-        {event.emoji}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-bold ${text} leading-tight`}>{event.title}</p>
-          <span className={`text-[10px] font-bold flex-shrink-0 px-2 py-0.5 rounded-lg ${event.price === 'Grátis' || event.price === 'Grátis (shows especiais pagos)' ? 'text-zippi-400 bg-zippi-400/10' : 'text-orange-400 bg-orange-400/10'}`}>
-            {event.price === 'Grátis' ? 'GRÁTIS' : event.price}
-          </span>
+    <div className="w-full flex items-start gap-3 p-3 rounded-2xl" style={cardStyle}>
+      <button type="button" onClick={() => onNavigate(event)}
+        className="flex items-start gap-3 flex-1 min-w-0 text-left active:scale-[0.98] transition-all">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+          style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}>
+          {event.emoji}
         </div>
-        <p className={`text-xs ${muted} mt-0.5`}>{event.local} · {event.time}</p>
-        {event.bairro && <p className={`text-[10px] ${muted} opacity-60`}>{event.bairro}</p>}
-      </div>
-    </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm font-bold ${text} leading-tight`}>{event.title}</p>
+            <span className={`text-[10px] font-bold flex-shrink-0 px-2 py-0.5 rounded-lg ${event.price === 'Grátis' || event.price === 'Grátis (shows especiais pagos)' ? 'text-zippi-400 bg-zippi-400/10' : 'text-orange-400 bg-orange-400/10'}`}>
+              {event.price === 'Grátis' ? 'GRÁTIS' : event.price}
+            </span>
+          </div>
+          <p className={`text-xs ${muted} mt-0.5`}>{event.local} · {event.time}</p>
+          {event.bairro && <p className={`text-[10px] ${muted} opacity-60`}>{event.bairro}</p>}
+        </div>
+      </button>
+      {event.url && (
+        <a href={event.url} target="_blank" rel="noopener noreferrer"
+          className="text-[10px] font-bold text-zippi-400 flex-shrink-0 self-center px-2 py-1 rounded-lg bg-zippi-400/10">
+          ingressos
+        </a>
+      )}
+    </div>
   )
 }
 
@@ -210,6 +217,9 @@ export default function Home() {
 
   /* ── Events (Hoje tab) ─────────────────────────────────────── */
   const [eventCat, setEventCat] = useState('todos')
+  const [cityEvents, setCityEvents] = useState(EVENTS_TODAY)
+  const [eventsLoading, setEventsLoading] = useState(false)
+  const [eventsSource, setEventsSource] = useState('fallback')
 
   /* ── Single-screen Ir state machine ───────────────────────── */
   const [sheetState,  setSheetState]  = useState('search')
@@ -459,27 +469,24 @@ export default function Home() {
     setQuery(service.query)
     expandSheet(SNAP.full)
 
-    // usa coordenadas reais ou POA_DEFAULT se GPS ainda não carregou
-    const searchLat = origin?.lat ?? POA_DEFAULT.lat
-    const searchLon = origin?.lon ?? POA_DEFAULT.lon
-    const cityName  = location.city || 'Porto Alegre'
+    const cityMeta = EXPLORE_CITIES.find(c => c.id === exploreCity) ?? EXPLORE_CITIES[0]
+    const searchLat = origin?.lat ?? cityMeta.lat
+    const searchLon = origin?.lon ?? cityMeta.lon
+    const cityName = location.city || cityMeta.displayName
 
-    if (service.osmTags?.length) {
-      // 1ª tentativa: Overpass 3km (bairro)
-      let places = await searchNearbyAmenities(service.osmTags, searchLat, searchLon, 3000)
-      // 2ª tentativa: Overpass 8km (cidade próxima) se 3km retornou vazio
-      if (!places.length) {
-        places = await searchNearbyAmenities(service.osmTags, searchLat, searchLon, 8000)
-      }
-      if (places.length > 0) {
-        setResults(places)
-        return
-      }
-    }
-    // fallback final: Nominatim com nome da cidade no query para garantir localidade
-    const localQuery = `${service.query} ${cityName}`
-    const places = await searchPlaces(localQuery, searchLat, searchLon, { strict: true })
-    setResults(places)
+    setResults([{ label: `Buscando ${service.label.toLowerCase()}…`, lat: searchLat, lon: searchLon }])
+
+    const places = await searchEssentials(service, {
+      lat: searchLat,
+      lon: searchLon,
+      city: cityName,
+      state: location.state || 'RS',
+    })
+    setResults(places.length ? places : [{
+      label: `Nenhum ${service.label.toLowerCase()} encontrado perto de ${cityName}`,
+      lat: searchLat,
+      lon: searchLon,
+    }])
   }
 
   async function handleGuideVoiceResult({ destination }) {
@@ -591,6 +598,39 @@ export default function Home() {
     setTrafficSegments(getTrafficSegments(hour, dayOfWeek))
   }, [hour, dayOfWeek])
 
+  useEffect(() => {
+    let cancelled = false
+    const cityMeta = EXPLORE_CITIES.find(c => c.id === exploreCity) ?? EXPLORE_CITIES[0]
+    const staticEvents = eventsForCity(exploreCity)
+    setCityEvents(staticEvents)
+    setEventsLoading(true)
+
+    fetchSymplaEvents(cityMeta.displayName, 'RS')
+      .then(({ events, source }) => {
+        if (cancelled) return
+        if (events.length) {
+          const symplaTitles = new Set(events.map(e => e.title.toLowerCase()))
+          const extra = staticEvents.filter(e => !symplaTitles.has(e.title.toLowerCase()))
+          setCityEvents([...events, ...extra].slice(0, 32))
+          setEventsSource(extra.length ? 'mixed' : source)
+        } else {
+          setCityEvents(staticEvents)
+          setEventsSource('fallback')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCityEvents(staticEvents)
+          setEventsSource('fallback')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [exploreCity])
+
   const handleMapBoundsChange = useCallback((bbox) => {
     clearTimeout(boundsTimer.current)
     boundsTimer.current = setTimeout(async () => {
@@ -609,13 +649,13 @@ export default function Home() {
   }, [hour, dayOfWeek])
 
   const eventsFiltered = useMemo(() => (
-    eventsForCity(exploreCity)
+    cityEvents
       .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
-  ), [exploreCity, eventCat])
+  ), [cityEvents, eventCat])
 
   const alwaysVisiblePins = useMemo(() => {
     const places = placesForCity(exploreCity)
-    const events = eventsForCity(exploreCity)
+    const events = cityEvents
     const explorePins = places.map(p => ({
       id: p.id,
       lat: p.lat,
@@ -643,7 +683,7 @@ export default function Home() {
         event: e,
       }))
     return [...explorePins, ...eventPins]
-  }, [exploreCity])
+  }, [exploreCity, cityEvents])
 
   const notificationItems = useMemo(() => {
     const items = []
@@ -661,7 +701,7 @@ export default function Home() {
         place: p,
       })
     })
-    const upcoming = eventsForCity(exploreCity)
+    const upcoming = cityEvents
       .filter(e => e.highlight || e.price === 'Grátis' || e.price === 'Entrada livre')
       .slice(0, 4)
     upcoming.forEach(ev => {
@@ -675,7 +715,7 @@ export default function Home() {
       })
     })
     return items.slice(0, 8)
-  }, [origin, exploreCity])
+  }, [origin, exploreCity, cityEvents])
 
   const alerts = useMemo(() => {
     const items = []
@@ -1336,6 +1376,8 @@ export default function Home() {
                   </p>
                   <p className={`text-xs ${muted}`}>
                     {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
+                    {eventsSource === 'sympla' || eventsSource === 'mixed' ? ' · sympla' : ''}
+                    {!hasSymplaToken() && !eventsLoading ? ' · curadoria local' : ''}
                   </p>
                 </div>
                 {/* City toggle */}
@@ -1392,6 +1434,9 @@ export default function Home() {
 
               {/* Events list */}
               <div className="px-5 flex flex-col gap-2">
+                {eventsLoading && (
+                  <p className={`text-xs ${muted} text-center py-2`}>carregando eventos…</p>
+                )}
                 {eventsFiltered.length === 0 ? (
                   <div className="py-12 text-center">
                     <p className="text-4xl mb-3">📅</p>
