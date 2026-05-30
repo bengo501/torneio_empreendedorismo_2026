@@ -1,52 +1,16 @@
-/**
- * integração sympla — eventos por cidade
- * requer VITE_SYMPLA_TOKEN (chave em sympla.com.br → minha conta → integrações)
- * usa proxy /api/sympla no vite para contornar cors
- */
-
-const SYMPLA_PROXY = import.meta.env.VITE_SYMPLA_PROXY ?? '/api/sympla'
-const TOKEN = import.meta.env.VITE_SYMPLA_TOKEN ?? ''
+import { SYMPLA_BASE, SYMPLA_TOKEN } from '../config.js'
 
 const CAT_MAP = {
-  musica: 'musica',
-  music: 'musica',
-  show: 'musica',
-  festa: 'musica',
-  cultura: 'cultura',
-  teatro: 'cultura',
-  cinema: 'cultura',
-  arte: 'cultura',
-  esporte: 'esporte',
-  sport: 'esporte',
-  corrida: 'esporte',
-  gastronomia: 'gastronomia',
-  food: 'gastronomia',
-  feira: 'feira',
-  workshop: 'cultura',
-  curso: 'educacao',
-  educacao: 'educacao',
+  musica: 'musica', music: 'musica', show: 'musica', festa: 'musica',
+  cultura: 'cultura', teatro: 'cultura', cinema: 'cultura', arte: 'cultura',
+  esporte: 'esporte', sport: 'esporte', corrida: 'esporte',
+  gastronomia: 'gastronomia', food: 'gastronomia', feira: 'feira',
+  workshop: 'cultura', curso: 'educacao', educacao: 'educacao',
 }
 
 const CAT_EMOJI = {
-  musica: '🎵',
-  cultura: '🎭',
-  feira: '🛍️',
-  gastronomia: '🍽️',
-  esporte: '🏃',
-  educacao: '🎓',
-  todos: '🗓️',
-}
-
-function symplaHeaders() {
-  return {
-    Accept: 'application/json',
-    s_token: TOKEN,
-  }
-}
-
-function parseCoord(v) {
-  const n = parseFloat(v)
-  return Number.isFinite(n) ? n : null
+  musica: '🎵', cultura: '🎭', feira: '🛍️', gastronomia: '🍽️',
+  esporte: '🏃', educacao: '🎓', todos: '🗓️',
 }
 
 function mapCategory(raw) {
@@ -57,7 +21,7 @@ function mapCategory(raw) {
   return 'cultura'
 }
 
-function formatEventDate(start, end) {
+function formatEventDate(start) {
   if (!start) return 'em breve'
   try {
     const d = new Date(start.replace(' ', 'T'))
@@ -71,8 +35,8 @@ function formatEventDate(start, end) {
 
 function normalizeSymplaEvent(raw, index) {
   const addr = raw.address || raw.location || {}
-  const lat = parseCoord(addr.lat ?? addr.latitude)
-  const lon = parseCoord(addr.lon ?? addr.longitude)
+  const lat = parseFloat(addr.lat ?? addr.latitude)
+  const lon = parseFloat(addr.lon ?? addr.longitude)
   const cat = mapCategory(raw.category_prim?.name || raw.category_sec?.name || raw.category?.name)
   const price = raw.free || raw.is_free
     ? 'Grátis'
@@ -91,8 +55,8 @@ function normalizeSymplaEvent(raw, index) {
     time: formatEventDate(raw.start_date || raw.startDate),
     price,
     cat,
-    lat,
-    lon,
+    lat: Number.isFinite(lat) ? lat : null,
+    lon: Number.isFinite(lon) ? lon : null,
     desc: (raw.detail || raw.description || '').slice(0, 120),
     highlight: price === 'Grátis',
     source: 'sympla',
@@ -107,36 +71,27 @@ function cityMatches(eventCity, targetCity) {
   return a.includes(b) || b.includes(a)
 }
 
-async function symplaFetch(path, params = {}) {
-  if (!TOKEN) return null
+export async function symplaUpstream(path, params = {}) {
+  if (!SYMPLA_TOKEN) return null
   const qs = new URLSearchParams(params).toString()
-  const url = `${SYMPLA_PROXY}${path}${qs ? `?${qs}` : ''}`
-  try {
-    const res = await fetch(url, { headers: symplaHeaders() })
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
+  const url = `${SYMPLA_BASE}${path}${qs ? `?${qs}` : ''}`
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json', s_token: SYMPLA_TOKEN },
+  })
+  if (!res.ok) return null
+  return res.json()
 }
 
-/** tenta api de parceiros com filtro de cidade */
 async function fetchPartnersByCity(city, state) {
-  const data = await symplaFetch('/partners/events', {
-    city,
-    state,
-    page: '1',
-    limit: '24',
-  })
+  const data = await symplaUpstream('/partners/events', { city, state, page: '1', limit: '24' })
   const list = data?.data ?? data?.events ?? data
   return Array.isArray(list) ? list : []
 }
 
-/** api pública — lista eventos do organizador; filtra por cidade no cliente */
 async function fetchPublicFiltered(city, state) {
   const all = []
   for (let page = 1; page <= 3; page++) {
-    const data = await symplaFetch('/public/v1.5.1/events', {
+    const data = await symplaUpstream('/public/v1.5.1/events', {
       page: String(page),
       page_size: '50',
     })
@@ -152,36 +107,41 @@ async function fetchPublicFiltered(city, state) {
   })
 }
 
-/** geocodifica eventos sem coordenadas (máx 5 por performance) */
+async function nominatimSearch(query) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=br&accept-language=pt-BR`,
+      { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'zippi-app/1.0' } },
+    )
+    const data = await res.json()
+    if (!data[0]) return null
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+  } catch {
+    return null
+  }
+}
+
 async function geocodeMissing(events, cityName) {
-  const { searchPlaces } = await import('./geo.js')
   const out = [...events]
   let geocoded = 0
   for (let i = 0; i < out.length && geocoded < 5; i++) {
     if (out[i].lat != null && out[i].lon != null) continue
-    const q = `${out[i].local}, ${cityName}`
-    const places = await searchPlaces(q, null, null, { strict: true, radiusDeg: 0.2 })
-    if (places[0]) {
-      out[i] = { ...out[i], lat: places[0].lat, lon: places[0].lon }
+    const coords = await nominatimSearch(`${out[i].local}, ${cityName}, Brasil`)
+    if (coords) {
+      out[i] = { ...out[i], lat: coords.lat, lon: coords.lon }
       geocoded++
     }
   }
   return out
 }
 
-/**
- * busca eventos sympla para uma cidade
- * @returns {{ events: Array, source: 'sympla'|'fallback'|'mixed' }}
- */
 export async function fetchSymplaEvents(cityName, stateCode = 'RS') {
-  if (!TOKEN) {
-    return { events: [], source: 'fallback' }
+  if (!SYMPLA_TOKEN) {
+    return { events: [], source: 'fallback', symplaConfigured: false }
   }
 
   let raw = await fetchPartnersByCity(cityName, stateCode)
-  if (!raw.length) {
-    raw = await fetchPublicFiltered(cityName, stateCode)
-  }
+  if (!raw.length) raw = await fetchPublicFiltered(cityName, stateCode)
 
   let events = raw
     .filter(ev => !ev.cancelled && ev.published !== 0)
@@ -192,9 +152,10 @@ export async function fetchSymplaEvents(cityName, stateCode = 'RS') {
   return {
     events: events.filter(e => e.lat != null && e.lon != null),
     source: events.length ? 'sympla' : 'fallback',
+    symplaConfigured: true,
   }
 }
 
-export function hasSymplaToken() {
-  return Boolean(TOKEN)
+export function isSymplaConfigured() {
+  return Boolean(SYMPLA_TOKEN)
 }

@@ -15,7 +15,7 @@ como configurar integrações e o que é realisticamente possível sem parceria 
 
 | serviço | variável | onde obter | observação |
 |---------|----------|------------|------------|
-| sympla | `VITE_SYMPLA_TOKEN` | sympla.com.br → minha conta → integrações | eventos da sua conta/parceria; proxy `/api/sympla` no dev |
+| sympla | `SYMPLA_TOKEN` (backend) | sympla.com.br → integrações | eventos via `GET /api/events`; chave só no servidor |
 
 ### sympla — limitações
 
@@ -107,7 +107,7 @@ arquivo: `src/services/scooters.js`
 
 ```
 fase 1 (agora)
-  sympla          → VITE_SYMPLA_TOKEN
+  sympla          → SYMPLA_TOKEN (backend / vercel)
   osm + photon    → já no código (sem chave)
   geoapify        → VITE_GEOAPIFY_API_KEY (opcional, sem cartão no free)
 

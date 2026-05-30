@@ -27,10 +27,10 @@ de onde o zippi obtém cada tipo de informação exibida ao usuário.
 
 enquanto as apis de eventos não estão integradas, o app usa dados curados em:
 
-- `src/data/explore.js` — lugares culturais, parques, gastronomia
-- `src/data/events.js` — eventos do dia por cidade
-- `src/data/essentials.js` — categorias de serviços essenciais
-- `src/data/services.js` — operadores de transporte e fórmulas de preço
+- `frontend/src/data/explore.js` — lugares culturais, parques, gastronomia
+- `frontend/src/data/events.js` — eventos do dia por cidade
+- `frontend/src/data/essentials.js` — categorias de serviços essenciais
+- `frontend/src/data/services.js` — operadores de transporte e fórmulas de preço
 
 ### cidades disponíveis
 

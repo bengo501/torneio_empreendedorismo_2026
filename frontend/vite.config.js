@@ -2,13 +2,14 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const apiTarget = process.env.VITE_API_PROXY ?? 'http://127.0.0.1:3001'
+
 export default defineConfig({
   server: {
     proxy: {
-      '/api/sympla': {
-        target: 'https://api.sympla.com.br',
+      '/api': {
+        target: apiTarget,
         changeOrigin: true,
-        rewrite: path => path.replace(/^\/api\/sympla/, ''),
       },
     },
   },
@@ -28,28 +29,12 @@ export default defineConfig({
         scope: '/',
         start_url: '/home',
         icons: [
-          {
-            src: 'icons/icon-192.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-          },
-          {
-            src: 'icons/icon-512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-          },
-          {
-            src: 'icons/icon-512.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'maskable any',
-          },
+          { src: 'icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: 'icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable any' },
         ],
       },
       workbox: {
-        // Apenas assets com hash no nome (JS, CSS, fontes, ícones) — NUNCA html.
-        // O index.html NÃO entra no precache; o browser sempre busca a versão
-        // mais recente na rede, evitando que o SW sirva HTML desatualizado.
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
         navigateFallback: null,
         runtimeCaching: [

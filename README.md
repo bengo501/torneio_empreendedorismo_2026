@@ -2,66 +2,60 @@
 
 zippi conecta pessoas à cidade: essenciais no bairro, cultura para explorar, eventos de hoje e transporte multimodal — tudo em um mapa.
 
-## objetivo
+## estrutura do repositório
 
-ajudar moradores e turistas a descobrir e se deslocar pela cidade com informação local, opções gratuitas e pagas, e integração com apps de transporte.
+```
+frontend/          # react + vite + leaflet (pwa)
+backend/           # api node (express) + funções vercel
+api/               # entrada serverless vercel → backend
+docs/              # documentação
+```
 
-## documentação
-
-| documento | conteúdo |
-|-----------|----------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | arquitetura técnica |
-| [docs/FEATURES.md](docs/FEATURES.md) | funcionalidades do app |
-| [docs/APIS.md](docs/APIS.md) | integrações e apis |
-| [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | fontes de dados |
-| [docs/CITY_MAPPING.md](docs/CITY_MAPPING.md) | mapeamento urbano |
-| [docs/ODS.md](docs/ODS.md) | alinhamento com ods da onu |
-| [docs/BACKLOG.md](docs/BACKLOG.md) | funcionalidades futuras |
-
-## stack
-
-react + vite + tailwind + leaflet + openstreetmap + osrm + open-meteo
+| pasta | responsabilidade |
+|-------|------------------|
+| `frontend/src` | telas, componentes, mapa, chamadas públicas (osm, osrm) |
+| `backend/src` | sympla, proxies, lógica com chaves secretas |
+| `api/` | handlers vercel (`/api/events`, `/api/health`) |
 
 ## rodar localmente
 
 ```bash
 npm install
-npm run dev
 ```
 
-acesse: http://localhost:5173/home
+crie `.env` na **raiz** com `SYMPLA_TOKEN` (copie de `.env.example`).
 
-### variáveis locais
+```bash
+# frontend + backend juntos
+npm run dev
 
-copie `.env.example` → `.env` e preencha `VITE_SYMPLA_TOKEN` se quiser eventos sympla.
+# ou separado
+npm run dev:frontend   # http://localhost:5173/home
+npm run dev:backend    # http://localhost:3001
+```
+
+## build
+
+```bash
+npm run build
+```
+
+saída: `frontend/dist`
 
 ## deploy na vercel
 
-guia completo: [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)
+[docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md)
 
-resumo:
+variável de ambiente na vercel: **`SYMPLA_TOKEN`** (não precisa mais de `VITE_SYMPLA_TOKEN` no cliente).
 
-1. importe o repo em [vercel.com/new](https://vercel.com/new)
-2. adicione `VITE_SYMPLA_TOKEN` nas environment variables
-3. deploy → acesse `https://<projeto>.vercel.app/home`
+## documentação
 
-## estrutura
-
-```
-src/
-  components/   # mapa, docks, cards, voz
-  screens/      # home, perfil, login
-  services/     # geo, overpass, clima, patinetes, deeplinks
-  data/         # lugares, eventos, transporte
-  context/      # tema, usuário
-  styles/       # glass ui
-docs/           # documentação completa
-```
-
-## cidades (mvp)
-
-- porto alegre (gps + explorar)
-- bento gonçalves (explorar remoto)
+| documento | conteúdo |
+|-----------|----------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | arquitetura |
+| [docs/APIS.md](docs/APIS.md) | integrações |
+| [docs/DEPLOY_VERCEL.md](docs/DEPLOY_VERCEL.md) | deploy |
+| [docs/CHAVES_API.md](docs/CHAVES_API.md) | chaves de api |
 
 ## licença
 

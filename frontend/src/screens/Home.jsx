@@ -220,6 +220,7 @@ export default function Home() {
   const [cityEvents, setCityEvents] = useState(EVENTS_TODAY)
   const [eventsLoading, setEventsLoading] = useState(false)
   const [eventsSource, setEventsSource] = useState('fallback')
+  const [symplaConfigured, setSymplaConfigured] = useState(false)
 
   /* ── Single-screen Ir state machine ───────────────────────── */
   const [sheetState,  setSheetState]  = useState('search')
@@ -597,6 +598,10 @@ export default function Home() {
   useEffect(() => {
     setTrafficSegments(getTrafficSegments(hour, dayOfWeek))
   }, [hour, dayOfWeek])
+
+  useEffect(() => {
+    hasSymplaToken().then(setSymplaConfigured)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1377,7 +1382,7 @@ export default function Home() {
                   <p className={`text-xs ${muted}`}>
                     {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
                     {eventsSource === 'sympla' || eventsSource === 'mixed' ? ' · sympla' : ''}
-                    {!hasSymplaToken() && !eventsLoading ? ' · curadoria local' : ''}
+                    {!symplaConfigured && !eventsLoading ? ' · curadoria local' : ''}
                   </p>
                 </div>
                 {/* City toggle */}

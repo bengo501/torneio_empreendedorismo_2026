@@ -1,30 +1,20 @@
 {
-  "name": "torneio_empreendedorismo_2026",
+  "name": "zippi",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "dev": "concurrently -n frontend,backend -c cyan,magenta \"npm run dev -w zippi-frontend\" \"npm run dev -w zippi-backend\"",
+    "dev:frontend": "npm run dev -w zippi-frontend",
+    "dev:backend": "npm run dev -w zippi-backend",
+    "build": "npm run build -w zippi-frontend",
+    "start:backend": "npm run start -w zippi-backend"
   },
   "devDependencies": {
-    "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.2",
-    "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.15",
-    "tailwindcss": "^3.4.19",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.12",
-    "vite-plugin-pwa": "^1.3.0"
-  },
-  "dependencies": {
-    "leaflet": "^1.9.4",
-    "lucide-react": "^1.16.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-leaflet": "^5.0.0",
-    "react-router-dom": "^7.15.1"
+    "concurrently": "^9.1.2"
   }
 }

@@ -1,12 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html","./src/**/*.{js,ts,jsx,tsx}"],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
         zippi: {
-          50:  '#f0fff6', 100: '#ccffe0', 300: '#6effa0',
+          50: '#f0fff6', 100: '#ccffe0', 300: '#6effa0',
           400: '#3DED7A', 500: '#1AD460', 600: '#14AA4C',
           700: '#0E7F39', 800: '#094F24', 900: '#041A0D',
         },

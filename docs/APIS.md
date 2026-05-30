@@ -16,7 +16,7 @@ lugares próximos sem google: [LUGARES_APIS.md](./LUGARES_APIS.md)
 | open-meteo | ativo | clima local |
 | carto tiles | ativo | mapa base |
 | gbfs (whoosh/lime) | parcial | patinetes e bikes |
-| sympla | ativo (token) | eventos por cidade na aba hoje |
+| sympla | ativo (backend) | eventos via `GET /api/events` |
 | ticketmaster | planejado | shows e eventos pagos |
 | bilhetin | planejado | ingressos locais |
 | google maps places | planejado | pois comerciais |
@@ -96,8 +96,8 @@ lugares próximos sem google: [LUGARES_APIS.md](./LUGARES_APIS.md)
 ### sympla
 
 - **url:** `https://api.sympla.com.br` (proxy dev: `/api/sympla`)
-- **autenticação:** header `s_token` — variável `VITE_SYMPLA_TOKEN` (ver `.env.example`)
-- **arquivo:** `src/services/sympla.js`
+- **autenticação:** header `s_token` — variável `SYMPLA_TOKEN` no backend (ver `.env.example`)
+- **arquivo:** `backend/src/services/symplaService.js` — cliente: `frontend/src/services/sympla.js`
 - **endpoints tentados:** `/partners/events?city=&state=` e `/public/v1.5.1/events` (filtro por cidade no cliente)
 - **fallback:** `src/data/events.js` quando sem token ou api vazia
 - **cors:** proxy no `vite.config.js` (dev) e rewrite `/api/sympla` no `vercel.json` (produção)

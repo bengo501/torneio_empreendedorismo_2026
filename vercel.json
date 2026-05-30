@@ -1,12 +1,9 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "framework": null,
   "rewrites": [
-    {
-      "source": "/api/sympla/:path*",
-      "destination": "https://api.sympla.com.br/:path*"
-    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
