@@ -2,12 +2,6 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
 
-const ODS_BADGES = [
-  { code: 10, label: 'Menos desigualdade', color: '#DD1367' },
-  { code: 11, label: 'Cidades sustentáveis', color: '#FF6700' },
-  { code: 13, label: 'Ação climática',       color: '#3F7E44' },
-]
-
 export default function Login() {
   const navigate         = useNavigate()
   const [step, setStep]  = useState('phone')   // 'phone' | 'otp'
@@ -93,24 +87,6 @@ export default function Login() {
             <p className="text-xs text-zippi-400/90 font-semibold mt-0.5 tracking-wide">
               Acesso urbano inteligente
             </p>
-          </div>
-
-          {/* ODS mini-badges */}
-          <div className="flex gap-1.5 mt-1">
-            {ODS_BADGES.map(o => (
-              <div
-                key={o.code}
-                className="flex flex-col items-center px-2 py-1 rounded-xl border border-white/5"
-                style={{ borderColor: o.color + '30', backgroundColor: o.color + '15' }}
-              >
-                <span className="text-[9px] font-black leading-none" style={{ color: o.color }}>
-                  ODS {o.code}
-                </span>
-                <span className="text-[7px] text-dark-500 leading-none mt-0.5 text-center max-w-[56px]">
-                  {o.label}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>

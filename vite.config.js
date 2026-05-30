@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'Zippi — Transporte Inteligente',
         short_name: 'Zippi',
-        description: 'Mobilidade urbana inteligente — ODS 10, 11, 13',
+        description: 'Mobilidade urbana inteligente — conecte-se à sua cidade',
         theme_color: '#3DED7A',
         background_color: '#F4F5F7',
         display: 'standalone',

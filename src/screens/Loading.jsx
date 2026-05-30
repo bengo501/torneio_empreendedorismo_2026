@@ -8,7 +8,7 @@ const STEPS = [
   { label: 'Calculando rotas multimodais',          icon: '🗺️' },
   { label: 'Comparando custos de acesso',           icon: '💰' },
   { label: 'Verificando disponibilidade em tempo real', icon: '📶' },
-  { label: 'Medindo impacto ambiental (ODS 13)',    icon: '🌿' },
+  { label: 'Medindo impacto ambiental',    icon: '🌿' },
   { label: 'IA recomendando melhor acesso urbano',  icon: '🤖' },
 ]
 

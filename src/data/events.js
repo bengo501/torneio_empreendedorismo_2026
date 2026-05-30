@@ -99,43 +99,46 @@ export const EVENTS_TODAY = [
   },
 ]
 
-/** Gramado seasonal events */
-export const EVENTS_GRAMADO = [
+/** Eventos em Bento Gonçalves */
+export const EVENTS_BENTO = [
   {
-    id: 'g1', emoji: '🎄',
-    title: 'Natal Luz de Gramado',
-    local: 'Centro de Gramado',
-    bairro: 'Gramado',
-    time: 'nov – jan · todas as noites', price: 'Grátis (shows especiais pagos)', cat: 'cultura',
-    lat: -29.3765, lon: -50.8733,
-    desc: 'Maior festa de Natal do Brasil com iluminação e shows gratuitos.',
+    id: 'b1', emoji: '🍷',
+    title: 'Festa da Uva',
+    local: 'Parque do Imigrante',
+    bairro: 'Centro',
+    time: 'fev – mar · diário', price: 'Grátis (degustações pagas)', cat: 'gastronomia',
+    lat: -29.1750, lon: -51.5120,
+    desc: 'Maior festa enogastronômica da Serra Gaúcha.',
     highlight: true,
   },
   {
-    id: 'g2', emoji: '🍫',
-    title: 'Festival do Chocolate',
-    local: 'Rua Coberta',
-    bairro: 'Gramado',
-    time: 'abr – mai · diário', price: 'Grátis (degustações pagas)', cat: 'gastronomia',
-    lat: -29.3748, lon: -50.8695,
-    desc: 'Festival internacional com artesãos chocolateiros e degustações.',
+    id: 'b2', emoji: '🎭',
+    title: 'Mostra de Teatro Italiano',
+    local: 'Centro Histórico',
+    bairro: 'Centro',
+    time: 'sáb · 20h', price: 'Grátis', cat: 'cultura',
+    lat: -29.1696, lon: -51.5193,
+    desc: 'Peças e apresentações sobre a cultura italiana gaúcha.',
   },
   {
-    id: 'g3', emoji: '🐣',
-    title: 'Páscoa em Gramado',
-    local: 'Centro de Gramado',
-    bairro: 'Gramado',
-    time: 'mar – abr · diário', price: 'Grátis', cat: 'cultura',
-    lat: -29.3760, lon: -50.8720,
-    desc: 'Decoração especial e eventos temáticos em toda a cidade.',
+    id: 'b3', emoji: '🎵',
+    title: 'Concerto no Museu do Vinho',
+    local: 'Museu do Vinho',
+    bairro: 'Centro',
+    time: 'dom · 18h', price: 'R$ 25', cat: 'musica',
+    lat: -29.1688, lon: -51.5180,
+    desc: 'Música clássica e jazz com degustação de vinhos locais.',
   },
   {
-    id: 'g4', emoji: '🎬',
-    title: 'Festival de Cinema de Gramado',
-    local: 'Palácio dos Festivais',
-    bairro: 'Gramado',
-    time: 'ago · 10 dias', price: 'R$ 20 – 60', cat: 'cultura',
-    lat: -29.3772, lon: -50.8741,
-    desc: 'O mais tradicional festival de cinema da América Latina.',
+    id: 'b4', emoji: '🛍️',
+    title: 'Feira de Produtos Coloniais',
+    local: 'Av. Osvaldo Aranha',
+    bairro: 'Centro',
+    time: 'dom · 9h–14h', price: 'Grátis', cat: 'feira',
+    lat: -29.1705, lon: -51.5175,
+    desc: 'Queijos, embutidos, vinhos e artesanato da região.',
   },
 ]
+
+/** @deprecated use EVENTS_BENTO */
+export const EVENTS_GRAMADO = EVENTS_BENTO

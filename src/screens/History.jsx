@@ -45,33 +45,29 @@ export default function History() {
         </div>
       </div>
 
-      {/* Social Impact Dashboard */}
+      {/* Impacto */}
       <div className="px-5 pb-2">
         <div className="flex items-center justify-between mb-3">
-          <p className={`text-xs ${dim} font-bold uppercase tracking-widest`}>Impacto Social</p>
-          <span className="text-[9px] font-black text-zippi-400 tracking-wider">ODS 10 · 11 · 13</span>
+          <p className={`text-xs ${dim} font-bold uppercase tracking-widest`}>Seu impacto</p>
         </div>
         <div className={`${bg2} border ${bdr} rounded-3xl p-4`}>
-          <p className={`text-sm font-bold ${text} mb-4`}>Sua contribuição com Porto Alegre</p>
+          <p className={`text-sm font-bold ${text} mb-4`}>Sua contribuição com a cidade</p>
 
-          {/* ODS 13 — Ação Climática */}
           <ImpactRow
-            code={13} color="#3F7E44" dark={dark}
-            label="Ação Climática"
+            color="#3F7E44" dark={dark}
+            label="Emissões evitadas"
             desc={`${impact.totalCo2Saved.toFixed(2)} kg de CO₂ evitados`}
             pct={Math.min(impact.greenPct, 100)}
           />
-          {/* ODS 11 — Cidades Sustentáveis */}
           <ImpactRow
-            code={11} color="#FF6700" dark={dark}
-            label="Cidades Sustentáveis"
+            color="#FF6700" dark={dark}
+            label="Viagens ecológicas"
             desc={`${impact.greenRides} de ${impact.totalRides} viagens ecológicas`}
             pct={impact.greenPct}
           />
-          {/* ODS 10 — Redução de Desigualdades */}
           <ImpactRow
-            code={10} color="#DD1367" dark={dark}
-            label="Menos Desigualdade"
+            color="#DD1367" dark={dark}
+            label="Economia"
             desc={`R$${impact.totalSaved.toFixed(2)} economizados com Zippi`}
             pct={Math.min(Math.round((impact.totalSaved / 30) * 100), 100)}
           />
@@ -176,30 +172,24 @@ function StatCard({ icon, label, value, green, dark, bg2, bdr, text, dim }) {
   )
 }
 
-function ImpactRow({ code, color, label, desc, pct, dark }) {
+function ImpactRow({ color, label, desc, pct, dark }) {
   return (
     <div className="mb-3 last:mb-0">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <span
-            className="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none"
-            style={{ color, backgroundColor: color + '22', border: `1px solid ${color}44` }}
-          >
-            ODS {code}
-          </span>
           <span className={`text-xs font-semibold ${dark ? 'text-dark-300' : 'text-gray-600'}`}>
             {label}
           </span>
         </div>
         <span className="text-xs font-black" style={{ color }}>{pct}%</span>
       </div>
+      <p className={`text-[10px] ${dark ? 'text-dark-500' : 'text-gray-500'} mb-1`}>{desc}</p>
       <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-dark-700' : 'bg-gray-200'} overflow-hidden`}>
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, backgroundColor: color }}
         />
       </div>
-      <p className={`text-[10px] mt-1 ${dark ? 'text-dark-500' : 'text-gray-400'}`}>{desc}</p>
     </div>
   )
 }

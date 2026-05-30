@@ -64,3 +64,19 @@ ao selecionar destino, `mapRef.current.cinematicRoute()` executa:
 
 o flag `cinematicActiveRef` suprime o `fitBounds` automático do `ZippiMap`
 durante a sequência para evitar conflito de animações.
+
+## contextos react
+
+- `ThemeContext` — modo claro/escuro
+- `UserContext` — nome e dados do usuário para saudação personalizada
+
+## documentação relacionada
+
+| documento | conteúdo |
+|-----------|----------|
+| [FEATURES.md](FEATURES.md) | funcionalidades |
+| [APIS.md](APIS.md) | integrações |
+| [DATA_SOURCES.md](DATA_SOURCES.md) | fontes de dados |
+| [CITY_MAPPING.md](CITY_MAPPING.md) | mapeamento urbano |
+| [ODS.md](ODS.md) | alinhamento com ods |
+| [BACKLOG.md](BACKLOG.md) | roadmap |

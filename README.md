@@ -1,39 +1,28 @@
 # zippi — mobilidade urbana inteligente
 
-zippi é um aplicativo de mobilidade urbana que integra transporte público, aplicativos de carona, micromobilidade e dados em tempo real para ajudar o usuário a se locomover pela cidade de forma rápida, sustentável e inteligente.
+zippi conecta pessoas à cidade: essenciais no bairro, cultura para explorar, eventos de hoje e transporte multimodal — tudo em um mapa.
 
 ## objetivo
 
-simplificar a tomada de decisão de mobilidade: em vez de abrir vários apps, o zippi agrega opções, calcula a melhor rota, considera clima e trânsito em tempo real, e abre o aplicativo de transporte correto com um toque.
+ajudar moradores e turistas a descobrir e se deslocar pela cidade com informação local, opções gratuitas e pagas, e integração com apps de transporte.
 
-## funcionalidades principais
+## documentação
 
-- mapa em tempo real com trânsito, natureza (parques, rios) e pins da comunidade
-- busca de destinos com geocodificação (nominatim/osm)
-- cálculo de rota via osrm
-- recomendação de serviços de transporte (uber, 99, indrive, patinetes, bikes)
-- deeplinks para abrir apps de transporte diretamente
-- aba "essenciais" para encontrar farmácias, mercados e serviços próximos (3km)
-- paradas de ônibus próximas ao trajeto (openstreetmap)
-- localizações de patinetes/bikes (gbfs)
-- assistente de voz (web speech api)
-- alertas de clima e trânsito
-- modo claro/escuro com glass ui estilo ios
+| documento | conteúdo |
+|-----------|----------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | arquitetura técnica |
+| [docs/FEATURES.md](docs/FEATURES.md) | funcionalidades do app |
+| [docs/APIS.md](docs/APIS.md) | integrações e apis |
+| [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | fontes de dados |
+| [docs/CITY_MAPPING.md](docs/CITY_MAPPING.md) | mapeamento urbano |
+| [docs/ODS.md](docs/ODS.md) | alinhamento com ods da onu |
+| [docs/BACKLOG.md](docs/BACKLOG.md) | funcionalidades futuras |
 
-## tecnologias
+## stack
 
-| camada         | tecnologia                              |
-|----------------|-----------------------------------------|
-| frontend       | react + vite + tailwind css             |
-| mapa           | leaflet.js                              |
-| geocodificação | nominatim (openstreetmap)               |
-| rota           | osrm (project-osrm.org)                 |
-| poi/amenities  | overpass api (openstreetmap)            |
-| clima          | open-meteo api                          |
-| patinetes      | gbfs (general bikeshare feed spec)      |
-| deeplinks      | uber uri scheme, 99app, indriver, etc.  |
+react + vite + tailwind + leaflet + openstreetmap + osrm + open-meteo
 
-## como rodar
+## rodar localmente
 
 ```bash
 npm install
@@ -42,17 +31,24 @@ npm run dev
 
 acesse: http://localhost:5173/home
 
-## estrutura de pastas
+## estrutura
 
 ```
 src/
-  components/   # componentes de ui (mapa, cards, docks, voz)
-  screens/      # tela principal (Home.jsx)
-  services/     # integrações externas (geo, overpass, clima, patinetes)
-  data/         # dados estáticos (serviços, eventos, essenciais)
-  styles/       # sistema de design glass ui
-  context/      # contextos react (tema)
-docs/
-  ARCHITECTURE.md  # arquitetura técnica
-  BACKLOG.md       # funcionalidades futuras
+  components/   # mapa, docks, cards, voz
+  screens/      # home, perfil, login
+  services/     # geo, overpass, clima, patinetes, deeplinks
+  data/         # lugares, eventos, transporte
+  context/      # tema, usuário
+  styles/       # glass ui
+docs/           # documentação completa
 ```
+
+## cidades (mvp)
+
+- porto alegre (gps + explorar)
+- bento gonçalves (explorar remoto)
+
+## licença
+
+projeto mvp — torneio empreendedorismo 2026

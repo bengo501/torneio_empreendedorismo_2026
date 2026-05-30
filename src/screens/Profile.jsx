@@ -5,26 +5,14 @@ import {
   LogOut, HelpCircle, Info, Edit3, Shield, User,
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { useUser } from '../context/UserContext.jsx'
 import { computeSocialImpact } from '../data/explore.js'
 import { RIDE_HISTORY, STATS } from '../data/history.js'
-
-const USER = {
-  name: 'João Silva',
-  phone: '+55 (51) 9 9999-1234',
-  since: 'Maio de 2026',
-  initials: 'JS',
-  city: 'Porto Alegre, RS',
-}
-
-const ODS_LIST = [
-  { code: 10, color: '#DD1367' },
-  { code: 11, color: '#FF6700' },
-  { code: 13, color: '#3F7E44' },
-]
 
 export default function Profile() {
   const navigate             = useNavigate()
   const { dark, toggle }     = useTheme()
+  const user                 = useUser()
   const [notif, setNotif]    = useState(true)
   const impact               = computeSocialImpact(RIDE_HISTORY)
 
@@ -59,7 +47,7 @@ export default function Profile() {
             {/* Avatar gradient */}
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-zippi-400 to-emerald-600 flex items-center justify-center shadow-xl shadow-zippi-900/40">
               <span className="text-2xl font-black text-dark-950 select-none">
-                {USER.initials}
+                {user.initials}
               </span>
             </div>
             {/* Verified badge */}
@@ -69,13 +57,13 @@ export default function Profile() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className={`text-xl font-black ${text} leading-tight`}>{USER.name}</h2>
-            <p className={`text-sm ${muted} mt-0.5`}>{USER.phone}</p>
+            <h2 className={`text-xl font-black ${text} leading-tight`}>{user.fullName}</h2>
+            <p className={`text-sm ${muted} mt-0.5`}>{user.phone}</p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               <span className="text-[10px] font-bold text-zippi-400 bg-zippi-900/30 px-2 py-0.5 rounded-full">
-                📍 {USER.city}
+                📍 {user.city}
               </span>
-              <span className={`text-[10px] ${dim}`}>· Desde {USER.since}</span>
+              <span className={`text-[10px] ${dim}`}>· Desde {user.since}</span>
             </div>
           </div>
 
@@ -91,7 +79,6 @@ export default function Profile() {
         <div className={`${bg2} border ${bdr} rounded-3xl p-4`}>
           <div className="flex items-center justify-between mb-3">
             <p className={`text-[10px] font-bold uppercase tracking-widest ${dim}`}>Seu Impacto</p>
-            <span className="text-[9px] font-black text-zippi-400 tracking-wider">ODS 10 · 11 · 13</span>
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-4">
@@ -175,40 +162,6 @@ export default function Profile() {
             dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted}
             last
           />
-        </div>
-
-        {/* MISSÃO */}
-        <div
-          className="rounded-2xl p-4 mb-5"
-          style={{
-            background: 'linear-gradient(135deg,#071a0b 0%,#0d1f15 100%)',
-            border: '1px solid #3DED7A22',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">🌍</span>
-            <p className="text-xs font-black text-zippi-400 uppercase tracking-widest">Missão Zippi</p>
-          </div>
-          <p className="text-xs text-dark-300 leading-relaxed mb-3">
-            Cada corrida sua contribui para uma Porto Alegre mais justa,
-            verde e acessível — reduzindo desigualdades, emissões de CO₂
-            e o custo de vida de todos.
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            {ODS_LIST.map(o => (
-              <span
-                key={o.code}
-                className="text-[9px] font-black px-2 py-0.5 rounded-full"
-                style={{
-                  color: o.color,
-                  backgroundColor: o.color + '22',
-                  border: `1px solid ${o.color}44`,
-                }}
-              >
-                ODS {o.code}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* SIGN OUT */}

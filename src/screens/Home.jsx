@@ -13,14 +13,14 @@ import CommunityModal     from '../components/CommunityModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
-import ServiceDetail   from '../components/ServiceDetail.jsx'
 import { getCurrentPosition, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
 import { getWeather, isSevereWeather } from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
-import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_GRAMADO } from '../data/explore.js'
-import { EVENTS_TODAY, EVENTS_GRAMADO, EVENT_CATS } from '../data/events.js'
+import { useUser }     from '../context/UserContext.jsx'
+import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_BENTO } from '../data/explore.js'
+import { EVENTS_TODAY, EVENTS_BENTO, EVENT_CATS } from '../data/events.js'
 import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isAlertTraffic } from '../data/traffic.js'
 import { ESSENTIAL_SERVICES } from '../data/essentials.js'
 import { fetchNatureFeatures, searchNearbyAmenities, fetchBusStops } from '../services/overpass.js'
@@ -36,13 +36,27 @@ function computeSnap() {
   const avail = window.innerHeight - NAV_H
   const peek  = HANDLE_H + DOCK_BAR_H + 10
   const full  = Math.min(Math.round(avail * 0.88), avail - 160)
-  // #region agent log
-  fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'Home.jsx:computeSnap',message:'snap values',data:{innerHeight:window.innerHeight,avail,peek,mid:Math.round(avail*0.48),full},hypothesisId:'C',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   return { peek, mid: Math.round(avail * 0.48), full }
 }
 
 const POA_DEFAULT = { lat: -30.0346, lon: -51.2177, label: 'Porto Alegre, RS' }
+
+const EXPLORE_CITIES = [
+  { id: 'poa', label: 'Porto Alegre', emoji: '🌆', lat: -30.0346, lon: -51.2177, displayName: 'Porto Alegre' },
+  { id: 'bentogoncalves', label: 'Bento Gonçalves', emoji: '🍷', lat: -29.1696, lon: -51.5193, displayName: 'Bento Gonçalves' },
+]
+
+function isBentoCity(cityId) {
+  return cityId === 'bentogoncalves'
+}
+
+function placesForCity(cityId) {
+  return isBentoCity(cityId) ? EXPLORE_BENTO : EXPLORE_PLACES
+}
+
+function eventsForCity(cityId) {
+  return isBentoCity(cityId) ? EVENTS_BENTO : EVENTS_TODAY
+}
 
 const SAVED = [
   { label:'Casa',     emoji:'🏠', address:'Moinhos de Vento',     lat:-30.0230, lon:-51.1988 },
@@ -142,6 +156,7 @@ function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
 export default function Home() {
   const navigate         = useNavigate()
   const { dark, toggle } = useTheme()
+  const user             = useUser()
 
   const hour      = new Date().getHours()
   const dayOfWeek = new Date().getDay()
@@ -191,7 +206,7 @@ export default function Home() {
 
   /* ── Explore ───────────────────────────────────────────────── */
   const [exploreCategory, setExploreCategory] = useState('todos')
-  const [exploreCity,     setExploreCity]     = useState('poa') // 'poa' | 'gramado'
+  const [exploreCity,     setExploreCity]     = useState('poa') // 'poa' | 'bentogoncalves'
 
   /* ── Events (Hoje tab) ─────────────────────────────────────── */
   const [eventCat, setEventCat] = useState('todos')
@@ -399,8 +414,31 @@ export default function Home() {
     animateSheet(target)
   }
 
+  function exploreCityName() {
+    if (isBentoCity(exploreCity)) return 'Bento Gonçalves'
+    return location.city || 'Porto Alegre'
+  }
+
+  function exploreGreeting() {
+    return `${getGreeting(hour)}, ${user.name}! ${exploreCityName()} te espera!`
+  }
+
+  function switchExploreCity(cityId) {
+    setExploreCity(cityId)
+    const city = EXPLORE_CITIES.find(c => c.id === cityId)
+    if (!city) return
+    mapRef.current?.flyTo(city.lat, city.lon, 14)
+    if (isBentoCity(cityId)) {
+      setLocation(prev => ({ ...prev, city: 'Bento Gonçalves', neighborhood: 'Centro' }))
+    } else if (origin?.city) {
+      setLocation(prev => ({ ...prev, city: origin.city, neighborhood: origin.neighborhood ?? prev.neighborhood }))
+    } else {
+      setLocation(prev => ({ ...prev, city: 'Porto Alegre' }))
+    }
+  }
+
   function dockPlaceholder() {
-    if (activeTab === 'explorar') return 'Buscar lugares para explorar…'
+    if (activeTab === 'explorar') return exploreGreeting()
     if (activeTab === 'hoje')     return 'Buscar eventos de hoje…'
     if (activeTab === 'essenciais') return 'Buscar farmácias, mercados…'
     return 'Para onde você quer ir?'
@@ -571,13 +609,13 @@ export default function Home() {
   }, [hour, dayOfWeek])
 
   const eventsFiltered = useMemo(() => (
-    (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
+    eventsForCity(exploreCity)
       .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
   ), [exploreCity, eventCat])
 
   const alwaysVisiblePins = useMemo(() => {
-    const places = exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES
-    const events = exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY
+    const places = placesForCity(exploreCity)
+    const events = eventsForCity(exploreCity)
     const explorePins = places.map(p => ({
       id: p.id,
       lat: p.lat,
@@ -609,7 +647,7 @@ export default function Home() {
 
   const notificationItems = useMemo(() => {
     const items = []
-    const nearbyPlaces = (exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
+    const nearbyPlaces = placesForCity(exploreCity)
       .filter(p => origin && kmBetween(origin, p) < 2.5)
       .slice(0, 4)
     nearbyPlaces.forEach(p => {
@@ -623,7 +661,7 @@ export default function Home() {
         place: p,
       })
     })
-    const upcoming = (exploreCity === 'gramado' ? EVENTS_GRAMADO : EVENTS_TODAY)
+    const upcoming = eventsForCity(exploreCity)
       .filter(e => e.highlight || e.price === 'Grátis' || e.price === 'Entrada livre')
       .slice(0, 4)
     upcoming.forEach(ev => {
@@ -885,8 +923,12 @@ export default function Home() {
             {(activeTab === 'explorar' || activeTab === 'hoje' || activeTab === 'essenciais') && (
               <div className="flex-shrink-0 px-5 pb-2">
                 <p className={`text-sm font-black ${text}`}>
-                  {activeTab === 'explorar' ? 'Explorar' : activeTab === 'hoje' ? 'Hoje' : 'Essenciais'}
-                  {activeTab !== 'essenciais' && (
+                  {activeTab === 'explorar'
+                    ? exploreGreeting()
+                    : activeTab === 'hoje'
+                      ? 'Hoje'
+                      : 'Essenciais'}
+                  {activeTab === 'hoje' && (
                     <span className={`font-normal ${muted}`}> · toque nos pins do mapa</span>
                   )}
                 </p>
@@ -1169,31 +1211,20 @@ export default function Home() {
           {activeTab === 'explorar' && (
             <div className="pb-4">
               {/* City selector */}
-              <div className="px-5 mb-4">
-                <div className="flex gap-2 p-1 rounded-2xl" style={cardStyle}>
-                  {[{ id:'poa', label:'🌆 Porto Alegre' }, { id:'gramado', label:'🏔 Gramado' }].map(c => (
-                    <button key={c.id} onClick={() => setExploreCity(c.id)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${exploreCity === c.id ? 'bg-zippi-400 text-dark-950 shadow' : ''}`}
-                      style={exploreCity !== c.id ? { color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+              <div className="px-5 mb-3">
+                <div className="flex gap-1.5 flex-wrap">
+                  {EXPLORE_CITIES.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => switchExploreCity(c.id)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 ${
+                        exploreCity === c.id ? 'bg-zippi-400 text-dark-950 shadow' : ''
+                      }`}
+                      style={exploreCity !== c.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)' } : {}}
                     >
-                      {c.label}
+                      {c.emoji} {c.label}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* IA suggestion banner */}
-              <div className="mx-5 mb-4 flex items-center gap-3 rounded-2xl px-4 py-3"
-                style={{ background:'linear-gradient(135deg,rgba(61,237,122,0.1),rgba(61,237,122,0.04))', border:'1px solid rgba(61,237,122,0.2)' }}>
-                <span className="text-xl">🤖</span>
-                <div>
-                  <p className="text-xs font-black text-zippi-400">Zippi IA recomenda</p>
-                  <p className={`text-xs ${muted}`}>
-                    {exploreCity === 'gramado'
-                      ? 'Gramado é ideal para o inverno — chocolates, vinhos e paisagens!'
-                      : `${getGreeting(hour)}! ${insight.msg}`
-                    }
-                  </p>
                 </div>
               </div>
 
@@ -1217,13 +1248,13 @@ export default function Home() {
               {/* Collections header */}
               <div className="px-5 mb-2">
                 <p className={`text-[10px] font-bold uppercase tracking-widest ${muted}`}>
-                  {exploreCity === 'gramado' ? 'Gramado & Serra Gaúcha' : 'Porto Alegre'}
+                  {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
                 </p>
               </div>
 
               {/* List view */}
               <div className="px-5 flex flex-col gap-2">
-                {(exploreCity === 'gramado' ? EXPLORE_GRAMADO : EXPLORE_PLACES)
+                {placesForCity(exploreCity)
                   .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
                   .map(place => {
                     const cat = EXPLORE_CATEGORIES.find(c => c.id === place.category)
@@ -1304,17 +1335,17 @@ export default function Home() {
                     {new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' })}
                   </p>
                   <p className={`text-xs ${muted}`}>
-                    {exploreCity === 'gramado' ? 'Gramado & Serra Gaúcha' : 'Porto Alegre'}
+                    {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
                   </p>
                 </div>
                 {/* City toggle */}
                 <div className="flex gap-1 p-0.5 rounded-xl" style={cardStyle}>
-                  {[{ id:'poa', label:'POA' }, { id:'gramado', label:'GRM' }].map(c => (
-                    <button key={c.id} onClick={() => setExploreCity(c.id)}
+                  {EXPLORE_CITIES.map(c => (
+                    <button key={c.id} onClick={() => switchExploreCity(c.id)}
                       className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${exploreCity === c.id ? 'bg-zippi-400 text-dark-950' : ''}`}
                       style={exploreCity !== c.id ? { color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' } : {}}
                     >
-                      {c.label}
+                      {c.id === 'poa' ? 'POA' : 'BG'}
                     </button>
                   ))}
                 </div>
@@ -1374,15 +1405,6 @@ export default function Home() {
                     onNavigate={navigateToEvent}
                   />
                 ))}
-              </div>
-
-              {/* ODS badge */}
-              <div className="mx-5 mt-4 flex items-center gap-2 px-4 py-3 rounded-2xl"
-                style={cardStyle}>
-                <span className="text-lg">🌐</span>
-                <p className={`text-xs ${muted}`}>
-                  Eventos locais apoiam os <span className="text-zippi-400 font-bold">ODS 8, 10 e 11</span> — economia local, inclusão e cidades sustentáveis.
-                </p>
               </div>
             </div>
           )}

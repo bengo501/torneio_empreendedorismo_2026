@@ -1,12 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const ODS_BADGES = [
-  { code: 10, label: 'Menos desigualdade', color: '#DD1367' },
-  { code: 11, label: 'Cidades sustentáveis', color: '#FF6700' },
-  { code: 13, label: 'Ação climática', color: '#3F7E44' },
-]
-
 export default function Splash() {
   const navigate = useNavigate()
   useEffect(() => {
@@ -37,25 +31,6 @@ export default function Splash() {
           <p className="text-xs text-dark-500 mt-2 font-medium max-w-[200px] leading-relaxed">
             Conectando pessoas à cidade com IA
           </p>
-        </div>
-
-        {/* ODS badges */}
-        <div className="flex gap-2 mt-2">
-          {ODS_BADGES.map(ods => (
-            <div
-              key={ods.code}
-              className="flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl border border-white/5 bg-white/3"
-              style={{ borderColor: ods.color + '33' }}
-            >
-              <span
-                className="text-[10px] font-black leading-none"
-                style={{ color: ods.color }}
-              >
-                ODS {ods.code}
-              </span>
-              <span className="text-[8px] text-dark-600 leading-none text-center">{ods.label}</span>
-            </div>
-          ))}
         </div>
       </div>
 

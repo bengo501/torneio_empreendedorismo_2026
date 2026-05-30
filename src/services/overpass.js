@@ -176,10 +176,6 @@ function haversine(lat1, lon1, lat2, lon2) {
  * @returns {Promise<Array<{label,fullLabel,lat,lon,distanceKm}>>}
  */
 export async function searchNearbyAmenities(tags, lat, lon, radiusMeters = 3000) {
-  // #region agent log
-  fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'called',data:{tags,lat,lon,radiusMeters},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  // cacheKey precisa de strings para tags — usa formato simples sem toFixed em strings
   const tagStr = tags.map(t => `${t.key}=${t.value}`).join('|')
   const cKey = `zippi_osm_poi_${parseFloat(lat).toFixed(3)}_${parseFloat(lon).toFixed(3)}_${tagStr}_${radiusMeters}`
   const cached = readCache(cKey)
@@ -219,15 +215,9 @@ export async function searchNearbyAmenities(tags, lat, lon, radiusMeters = 3000)
       .sort((a, b) => a.distanceKm - b.distanceKm)
       .slice(0, 8)
 
-    // #region agent log
-    fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'results',data:{count:results.length,first:results[0]?.label,firstLat:results[0]?.lat,firstLon:results[0]?.lon},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     writeCache(cKey, results)
     return results
-  } catch(e) {
-    // #region agent log
-    fetch('http://127.0.0.1:7345/ingest/45471356-8c5e-4247-abd0-dbb14a11fc8c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'b42906'},body:JSON.stringify({sessionId:'b42906',location:'overpass.js:searchNearbyAmenities',message:'CATCH error',data:{error:String(e)},hypothesisId:'A',timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+  } catch {
     return []
   }
 }
