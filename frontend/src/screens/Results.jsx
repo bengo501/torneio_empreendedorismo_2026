@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Navigation } from 'lucide-react'
+import { ArrowLeft, MapPin, Navigation, Zap, Wallet, Timer, Leaf, Shuffle, CloudRainWind, Globe } from 'lucide-react'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 import ServiceCard from '../components/ServiceCard.jsx'
@@ -8,11 +8,11 @@ import ServiceDetail from '../components/ServiceDetail.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
 
 const FILTERS = [
-  { id: 'balanced',  label: '⚡ Equilibrado', prefs: { price:.35, time:.25, eco:.2, comfort:.1, avail:.1 } },
-  { id: 'cheapest',  label: '💸 Menor preço', prefs: { price:.6, time:.15, eco:.1, comfort:.1, avail:.05 } },
-  { id: 'fastest',   label: '🏎 Mais rápido', prefs: { price:.15, time:.6, eco:.1, comfort:.1, avail:.05 } },
-  { id: 'eco',       label: '🌿 Eco',          prefs: { price:.2, time:.1, eco:.5, comfort:.1, avail:.1 } },
-  { id: 'combined',  label: '🔀 Combinado',    prefs: null },
+  { id: 'balanced',  label: 'Equilibrado', icon: Zap,      prefs: { price:.35, time:.25, eco:.2, comfort:.1, avail:.1 } },
+  { id: 'cheapest',  label: 'Menor preço', icon: Wallet,   prefs: { price:.6, time:.15, eco:.1, comfort:.1, avail:.05 } },
+  { id: 'fastest',   label: 'Mais rápido', icon: Timer,    prefs: { price:.15, time:.6, eco:.1, comfort:.1, avail:.05 } },
+  { id: 'eco',       label: 'Eco',         icon: Leaf,     prefs: { price:.2, time:.1, eco:.5, comfort:.1, avail:.1 } },
+  { id: 'combined',  label: 'Combinado',   icon: Shuffle,  prefs: null },
 ]
 
 export default function Results() {
@@ -86,7 +86,9 @@ export default function Results() {
         {/* Weather warning banner */}
         {weather?.warn && (
           <div className="mx-5 mt-4 flex items-center gap-3 bg-yellow-900/30 border border-yellow-500/30 rounded-2xl px-4 py-3 animate-fade-in">
-            <span className="text-xl flex-shrink-0">{weather.emoji ?? '⛈️'}</span>
+            <span className="flex-shrink-0 text-yellow-400">
+              <CloudRainWind size={24} />
+            </span>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-yellow-400">Previsão de chuva</p>
               <p className="text-xs text-yellow-200/70">
@@ -111,7 +113,10 @@ export default function Results() {
                       : 'bg-gray-100 text-gray-500 border border-gray-200'
                 }`}
               >
-                {f.label}
+                <div className="flex items-center gap-1.5">
+                  <f.icon size={14} />
+                  <span>{f.label}</span>
+                </div>
               </button>
             ))}
           </div>
@@ -129,7 +134,9 @@ export default function Results() {
 
             {combos.length === 0 ? (
               <div className={`rounded-3xl border p-8 text-center ${dark ? 'bg-dark-900 border-dark-800' : 'bg-white border-gray-200'}`}>
-                <p className="text-3xl mb-3">🔀</p>
+                <div className="flex justify-center mb-3 text-zippi-400">
+                  <Shuffle size={32} />
+                </div>
                 <p className={`font-bold ${text} mb-1`}>Nenhuma combinação encontrada</p>
                 <p className={`text-xs ${muted}`}>
                   Para distâncias curtas, um único serviço já é ideal.
@@ -156,7 +163,9 @@ export default function Results() {
             {/* Eco tip */}
             {hasEco && filter !== 'cheapest' && (
               <div className="mx-5 mb-4 flex items-start gap-3 bg-zippi-900/20 border border-zippi-400/20 rounded-2xl px-4 py-3 animate-fade-in">
-                <span className="text-xl flex-shrink-0">🌍</span>
+                <span className="flex-shrink-0 text-zippi-400">
+                  <Globe size={24} />
+                </span>
                 <div>
                   <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Zippi</p>
                   <p className={`text-xs ${muted}`}>

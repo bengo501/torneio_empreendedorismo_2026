@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, TrendingDown, Leaf, RotateCcw } from 'lucide-react'
+import { ArrowLeft, TrendingDown, Leaf, RotateCcw, Car, Wallet, MapPin, Clock } from 'lucide-react'
 import { RIDE_HISTORY, STATS } from '../data/history.js'
 import { computeSocialImpact } from '../data/explore.js'
 import { useTheme } from '../context/ThemeContext.jsx'
@@ -37,11 +37,11 @@ export default function History() {
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2">
           <StatCard dark={dark} bg2={bg2} bdr={bdr} text={text} dim={dim}
-            icon="🚗" label="Corridas" value={STATS.totalRides} />
+            icon={<Car size={24} className={text} />} label="Corridas" value={STATS.totalRides} />
           <StatCard dark={dark} bg2={bg2} bdr={bdr} text={text} dim={dim}
-            icon="💸" label="Economizado" value={`R$${STATS.totalSaved.toFixed(0)}`} green />
+            icon={<Wallet size={24} className="text-zippi-400" />} label="Economizado" value={`R$${STATS.totalSaved.toFixed(0)}`} green />
           <StatCard dark={dark} bg2={bg2} bdr={bdr} text={text} dim={dim}
-            icon="🌿" label="CO₂ salvo" value={`${STATS.totalCo2Kg}kg`} green />
+            icon={<Leaf size={24} className="text-zippi-400" />} label="CO₂ salvo" value={`${STATS.totalCo2Kg}kg`} green />
         </div>
       </div>
 
@@ -123,10 +123,10 @@ export default function History() {
               {/* Badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`flex items-center gap-1 text-xs ${bg3} ${muted} px-2.5 py-1 rounded-full`}>
-                  📍 {ride.km} km
+                  <MapPin size={10} /> {ride.km} km
                 </span>
                 <span className={`flex items-center gap-1 text-xs ${bg3} ${muted} px-2.5 py-1 rounded-full`}>
-                  ⏱ {ride.durationMin} min
+                  <Clock size={10} /> {ride.durationMin} min
                 </span>
                 {ride.saved > 0 && (
                   <span className="flex items-center gap-1 text-xs bg-zippi-900/40 text-zippi-400 border border-zippi-400/20 px-2.5 py-1 rounded-full font-semibold">
@@ -162,10 +162,10 @@ export default function History() {
 
 function StatCard({ icon, label, value, green, dark, bg2, bdr, text, dim }) {
   return (
-    <div className={`rounded-2xl p-3 text-center border ${
+    <div className={`rounded-2xl p-3 text-center border flex flex-col items-center ${
       green ? 'bg-zippi-900/20 border-zippi-400/20' : `${bg2} ${bdr}`
     }`}>
-      <p className="text-2xl mb-1">{icon}</p>
+      <div className="mb-2">{icon}</div>
       <p className={`text-base font-black ${green ? 'text-zippi-400' : text}`}>{value}</p>
       <p className={`text-xs ${dim} mt-0.5`}>{label}</p>
     </div>
