@@ -1,20 +1,47 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Bell, Moon, Sun, ChevronRight,
   LogOut, HelpCircle, Info, Edit3, Shield, User,
+  Sparkles, ChevronDown, ChevronUp,
+  Wallet, Zap, Compass, Navigation, Clock, Heart, Users, Accessibility,
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useUser } from '../context/UserContext.jsx'
-import { computeSocialImpact } from '../data/explore.js'
-import { RIDE_HISTORY, STATS } from '../data/history.js'
+import {
+  BEHAVIOR_CATEGORIES,
+  loadSelectedTags,
+  saveSelectedTags,
+} from '../data/behaviorTags.js'
+
+const CAT_ICONS = {
+  budget: Wallet,
+  vibe: Zap,
+  space: Compass,
+  mobility: Navigation,
+  time: Clock,
+  interests: Heart,
+  company: Users,
+  needs: Accessibility,
+}
 
 export default function Profile() {
   const navigate             = useNavigate()
   const { dark, toggle }     = useTheme()
   const user                 = useUser()
-  const [notif, setNotif]    = useState(true)
-  const impact               = computeSocialImpact(RIDE_HISTORY)
+  const [notif, setNotif]               = useState(true)
+  const [selectedTags, setSelectedTags] = useState(() => loadSelectedTags())
+  const [expandedCat, setExpandedCat]   = useState(null)
+
+  const toggleTag = useCallback((tag) => {
+    setSelectedTags(prev => {
+      const next = prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+      saveSelectedTags(next)
+      return next
+    })
+  }, [])
 
   const bg    = dark ? 'bg-dark-950'     : 'bg-gray-50'
   const bg2   = dark ? 'bg-dark-900'     : 'bg-white'
@@ -75,38 +102,103 @@ export default function Profile() {
           </button>
         </div>
 
-        {/* ── IMPACTO CARD ──────────────────────────────────────── */}
+        {/* ── BEHAVIOR TAGS CARD ────────────────────────────────── */}
         <div className={`${bg2} border ${bdr} rounded-3xl p-4`}>
+
+          {/* Header */}
           <div className="flex items-center justify-between mb-3">
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${dim}`}>Seu Impacto</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <ImpactStat icon="🚗" value={String(STATS.totalRides)} label="Corridas" text={text} dim={dim} />
-            <ImpactStat icon="🌿" value={`${impact.totalCo2Saved.toFixed(1)}kg`} label="CO₂ salvo" text={text} dim={dim} green />
-            <ImpactStat icon="💸" value={`R$${STATS.totalSaved.toFixed(0)}`} label="Economizado" text={text} dim={dim} green />
-          </div>
-
-          {/* Green ride progress */}
-          <div className={`pt-3 border-t ${dark ? 'border-dark-700' : 'border-gray-100'}`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className={`text-xs ${muted}`}>
-                <span className="font-bold text-zippi-400">{impact.greenPct}%</span>{' '}
-                das viagens foram ecológicas
+            <div className="flex items-center gap-2">
+              <Sparkles size={14} className="text-zippi-400" />
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${dim}`}>
+                Seu Perfil de Gostos
               </p>
-              <button
-                onClick={() => navigate('/history')}
-                className="text-[10px] font-bold text-zippi-400"
-              >
-                Histórico →
-              </button>
             </div>
-            <div className={`w-full h-1.5 rounded-full ${bg3} overflow-hidden`}>
-              <div
-                className="h-full rounded-full bg-zippi-400 transition-all duration-700"
-                style={{ width: `${impact.greenPct}%` }}
-              />
+            {selectedTags.length > 0 && (
+              <span className="text-[10px] font-bold text-zippi-400 bg-zippi-900/30 px-2 py-0.5 rounded-full">
+                {selectedTags.length} selecionadas
+              </span>
+            )}
+          </div>
+
+          {/* Intro text */}
+          <p className={`text-xs ${muted} mb-4 leading-relaxed`}>
+            Selecione o que combina com você — a IA vai usar isso para recomendar lugares e eventos.
+          </p>
+
+          {/* Selected tags preview */}
+          {selectedTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {selectedTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zippi-400/15 text-zippi-400 border border-zippi-400/30 active:scale-95 transition-all duration-150"
+                >
+                  {tag} ✕
+                </button>
+              ))}
             </div>
+          )}
+
+          {/* Category accordion */}
+          <div className="space-y-1.5">
+            {BEHAVIOR_CATEGORIES.map(cat => {
+              const isOpen = expandedCat === cat.id
+              const catSelectedCount = cat.tags.filter(t => selectedTags.includes(t)).length
+              const Icon = CAT_ICONS[cat.id] || Sparkles
+
+              return (
+                <div key={cat.id}>
+                  {/* Category header */}
+                  <button
+                    onClick={() => setExpandedCat(isOpen ? null : cat.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-colors duration-150 ${
+                      isOpen
+                        ? dark ? 'bg-dark-700/60' : 'bg-gray-100'
+                        : dark ? 'active:bg-dark-800' : 'active:bg-gray-50'
+                    }`}
+                  >
+                    <Icon size={16} className={dark ? 'text-zippi-400' : 'text-zippi-500'} />
+                    <span className={`flex-1 text-left text-xs font-semibold ${text}`}>
+                      {cat.label}
+                    </span>
+                    {catSelectedCount > 0 && (
+                      <span className="text-[9px] font-bold text-zippi-400 bg-zippi-400/15 w-5 h-5 rounded-full flex items-center justify-center">
+                        {catSelectedCount}
+                      </span>
+                    )}
+                    {isOpen
+                      ? <ChevronUp size={14} className={dim} />
+                      : <ChevronDown size={14} className={dim} />
+                    }
+                  </button>
+
+                  {/* Tags (expanded) */}
+                  {isOpen && (
+                    <div className="flex flex-wrap gap-1.5 px-3 pt-2 pb-3">
+                      {cat.tags.map(tag => {
+                        const active = selectedTags.includes(tag)
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={`text-[11px] font-medium px-2.5 py-1.5 rounded-full border transition-all duration-150 active:scale-95 ${
+                              active
+                                ? 'bg-zippi-400/20 text-zippi-400 border-zippi-400/40 font-semibold'
+                                : dark
+                                  ? 'bg-dark-800/60 text-dark-300 border-dark-700 active:bg-dark-700'
+                                  : 'bg-gray-50 text-gray-600 border-gray-200 active:bg-gray-100'
+                            }`}
+                          >
+                            {active ? '✓ ' : ''}{tag}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -189,15 +281,7 @@ function SectionLabel({ label, dim }) {
   )
 }
 
-function ImpactStat({ icon, value, label, green, text, dim }) {
-  return (
-    <div className="text-center">
-      <p className="text-xl mb-0.5">{icon}</p>
-      <p className={`text-sm font-black leading-tight ${green ? 'text-zippi-400' : text}`}>{value}</p>
-      <p className={`text-[10px] ${dim} mt-0.5`}>{label}</p>
-    </div>
-  )
-}
+
 
 function ToggleRow({ icon, label, value, onToggle, dark, bg3, bdr, text, last }) {
   return (

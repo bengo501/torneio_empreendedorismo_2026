@@ -39,7 +39,7 @@ export default function Login() {
     }
     if (next.every(d => d !== '')) {
       setLoading(true)
-      setTimeout(() => navigate('/home'), 700)
+      setTimeout(() => navigate('/onboarding'), 700)
     }
   }
 
@@ -58,7 +58,7 @@ export default function Login() {
     otpRefs.current[Math.min(pasted.length, 5)]?.focus()
     if (next.every(d => d !== '')) {
       setLoading(true)
-      setTimeout(() => navigate('/home'), 700)
+      setTimeout(() => navigate('/onboarding'), 700)
     }
   }
 
@@ -211,7 +211,7 @@ export default function Login() {
 
             {/* Verify button */}
             <button
-              onClick={() => { setLoading(true); setTimeout(() => navigate('/home'), 600) }}
+              onClick={() => { setLoading(true); setTimeout(() => navigate('/onboarding'), 600) }}
               disabled={otp.some(d => !d) || loading}
               className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
                 otp.every(d => d)

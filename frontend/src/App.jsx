@@ -7,6 +7,7 @@ import Login    from './screens/Login.jsx'
 import Home     from './screens/Home.jsx'
 import History  from './screens/History.jsx'
 import Profile  from './screens/Profile.jsx'
+import Onboarding from './screens/Onboarding.jsx'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/home"    element={<Home     />} />
         <Route path="/history" element={<History  />} />
         <Route path="/profile" element={<Profile  />} />
+        <Route path="/onboarding" element={<Onboarding />} />
         {/* /loading e /results foram integrados ao Home — redireciona quem ainda tiver a URL antiga */}
         <Route path="/loading" element={<Navigate to="/home" replace />} />
         <Route path="/results" element={<Navigate to="/home" replace />} />

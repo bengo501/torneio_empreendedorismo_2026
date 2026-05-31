@@ -5,6 +5,8 @@ import {
   Sun, Moon, Mic, ArrowLeft, ChevronRight,
   Compass, CalendarDays, User2, Zap, Sparkles,
   ShoppingBag, Cross, UtensilsCrossed, Heart,
+  Building2, Wine, HomeIcon, Briefcase, Map, Wallet, Signal, Leaf, Bot,
+  CloudRainWind, Coffee, Music, TreePine, Globe, Timer, Shuffle, Car
 } from 'lucide-react'
 import ZippiMap           from '../components/ZippiMap.jsx'
 import NotificationsDock  from '../components/NotificationsDock.jsx'
@@ -44,8 +46,8 @@ function computeSnap() {
 const POA_DEFAULT = { lat: -30.0346, lon: -51.2177, label: 'Porto Alegre, RS' }
 
 const EXPLORE_CITIES = [
-  { id: 'poa', label: 'Porto Alegre', emoji: '🌆', lat: -30.0346, lon: -51.2177, displayName: 'Porto Alegre' },
-  { id: 'bentogoncalves', label: 'Bento Gonçalves', emoji: '🍷', lat: -29.1696, lon: -51.5193, displayName: 'Bento Gonçalves' },
+  { id: 'poa', label: 'Porto Alegre', icon: Building2, lat: -30.0346, lon: -51.2177, displayName: 'Porto Alegre' },
+  { id: 'bentogoncalves', label: 'Bento Gonçalves', icon: Wine, lat: -29.1696, lon: -51.5193, displayName: 'Bento Gonçalves' },
 ]
 
 function isBentoCity(cityId) {
@@ -61,8 +63,8 @@ function eventsForCity(cityId) {
 }
 
 const SAVED = [
-  { label:'Casa',     emoji:'🏠', address:'Moinhos de Vento',     lat:-30.0230, lon:-51.1988 },
-  { label:'Trabalho', emoji:'💼', address:'Centro Histórico — POA', lat:-30.0310, lon:-51.2300 },
+  { label:'Casa',     icon: HomeIcon, address:'Moinhos de Vento',     lat:-30.0230, lon:-51.1988 },
+  { label:'Trabalho', icon: Briefcase, address:'Centro Histórico — POA', lat:-30.0310, lon:-51.2300 },
 ]
 const RECENT = [
   { label:'Parque da Redenção',      address:'Av. José Bonifácio',        lat:-30.0355, lon:-51.2071 },
@@ -70,31 +72,31 @@ const RECENT = [
   { label:'Aeroporto Salgado Filho', address:'Av. Severo Dullius, 90000', lat:-29.9937, lon:-51.1714 },
 ]
 const LOADING_STEPS = [
-  { label:'Identificando posição urbana',    icon:'📍' },
-  { label:'Calculando rotas multimodais',    icon:'🗺️' },
-  { label:'Comparando custos de acesso',     icon:'💰' },
-  { label:'Verificando disponibilidade',     icon:'📶' },
-  { label:'Medindo impacto ambiental',       icon:'🌿' },
-  { label:'IA recomendando melhor acesso',   icon:'🤖' },
+  { label:'Identificando posição urbana',    icon: MapPin },
+  { label:'Calculando rotas multimodais',    icon: Map },
+  { label:'Comparando custos de acesso',     icon: Wallet },
+  { label:'Verificando disponibilidade',     icon: Signal },
+  { label:'Medindo impacto ambiental',       icon: Leaf },
+  { label:'IA recomendando melhor acesso',   icon: Bot },
 ]
 const FILTERS = [
-  { id:'balanced', label:'⚡ Equilibrado', prefs:{ price:.35, time:.25, eco:.2, comfort:.1, avail:.1 } },
-  { id:'cheapest', label:'💸 Menor preço', prefs:{ price:.6,  time:.15, eco:.1, comfort:.1, avail:.05 } },
-  { id:'fastest',  label:'🏎 Mais rápido', prefs:{ price:.15, time:.6,  eco:.1, comfort:.1, avail:.05 } },
-  { id:'eco',      label:'🌿 Eco',         prefs:{ price:.2,  time:.1,  eco:.5, comfort:.1, avail:.1  } },
-  { id:'combined', label:'🔀 Combinado',   prefs: null },
+  { id:'balanced', label:'Equilibrado', icon: Zap, prefs:{ price:.35, time:.25, eco:.2, comfort:.1, avail:.1 } },
+  { id:'cheapest', label:'Menor preço', icon: Wallet, prefs:{ price:.6,  time:.15, eco:.1, comfort:.1, avail:.05 } },
+  { id:'fastest',  label:'Mais rápido', icon: Timer, prefs:{ price:.15, time:.6,  eco:.1, comfort:.1, avail:.05 } },
+  { id:'eco',      label:'Eco',         icon: Leaf, prefs:{ price:.2,  time:.1,  eco:.5, comfort:.1, avail:.1  } },
+  { id:'combined', label:'Combinado',   icon: Shuffle, prefs: null },
 ]
 
 // ── Contextual AI engine (client-side simulation) ────────────────
 function getContextualInsight(hour, weather, dayOfWeek, origin) {
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-  if (weather?.warn)       return { emoji:'⛈️', msg:'Chuva chegando — prefira opções cobertas', cta:'Ver rotas cobertas' }
-  if (hour >= 6 && hour <= 9)  return { emoji:'☕', msg:'Bom café antes do trabalho?', cta:'Cafés próximos' }
-  if (hour >= 11 && hour <= 13) return { emoji:'🍽️', msg:'Hora do almoço — restaurantes abertos', cta:'Ver opções' }
-  if (hour >= 17 && hour <= 19) return { emoji:'🌆', msg:'Fim do expediente — que tal explorar?', cta:'Explorar bairro' }
-  if (hour >= 19)          return { emoji:'🎵', msg:'Show gratuito hoje à noite em POA', cta:'Ver eventos' }
-  if (isWeekend && hour < 14) return { emoji:'🌿', msg:'Final de semana perfeito para a Redenção', cta:'Como chegar' }
-  return { emoji:'🌐', msg:'Sua cidade inteligente te espera', cta:'Explorar POA' }
+  if (weather?.warn)       return { icon: CloudRainWind, msg:'Chuva chegando — prefira opções cobertas', cta:'Ver rotas cobertas' }
+  if (hour >= 6 && hour <= 9)  return { icon: Coffee, msg:'Bom café antes do trabalho?', cta:'Cafés próximos' }
+  if (hour >= 11 && hour <= 13) return { icon: UtensilsCrossed, msg:'Hora do almoço — restaurantes abertos', cta:'Ver opções' }
+  if (hour >= 17 && hour <= 19) return { icon: Building2, msg:'Fim do expediente — que tal explorar?', cta:'Explorar bairro' }
+  if (hour >= 19)          return { icon: Music, msg:'Show gratuito hoje à noite em POA', cta:'Ver eventos' }
+  if (isWeekend && hour < 14) return { icon: TreePine, msg:'Final de semana perfeito para a Redenção', cta:'Como chegar' }
+  return { icon: Globe, msg:'Sua cidade inteligente te espera', cta:'Explorar POA' }
 }
 
 function getGreeting(hour) {
@@ -959,7 +961,9 @@ export default function Home() {
                   className="mt-2 w-full flex items-center gap-2 px-3 py-2.5 rounded-2xl text-left active:scale-[0.98] transition-all"
                   style={glassSecondary}
                 >
-                  <span className="text-lg">{insight.emoji}</span>
+                  <div className="text-zippi-400 mr-2 flex-shrink-0">
+                    {insight.icon && <insight.icon size={24} />}
+                  </div>
                   <p className={`text-xs font-medium ${text} flex-1`}>{insight.msg}</p>
                   <ChevronRight size={14} className="text-zippi-400" />
                 </button>
@@ -1073,7 +1077,7 @@ export default function Home() {
                           >
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base flex-shrink-0"
                               style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-                              {s.emoji}
+                              <s.icon size={18} className={muted} />
                             </div>
                             <span className={`text-sm font-semibold ${text}`}>{s.label}</span>
                           </button>
@@ -1127,7 +1131,7 @@ export default function Home() {
                   </div>
                   <p className={`text-sm ${muted} mb-5`}>
                     {loadingPct < 100
-                      ? `${LOADING_STEPS[loadingStep]?.icon} ${LOADING_STEPS[loadingStep]?.label}…`
+                      ? `${LOADING_STEPS[loadingStep]?.label}…`
                       : '✅ Melhores opções encontradas!'}
                   </p>
                   <div className="flex flex-col gap-2.5">
@@ -1173,7 +1177,7 @@ export default function Home() {
                   {weather?.warn && (
                     <div className="mx-5 mb-3 flex items-center gap-3 rounded-2xl px-4 py-3"
                       style={{ background:'rgba(113,63,18,0.3)', border:'1px solid rgba(234,179,8,0.3)' }}>
-                      <span className="text-xl flex-shrink-0">{weather.emoji ?? '⛈️'}</span>
+                      <span className="flex-shrink-0 text-yellow-400"><CloudRainWind size={24} /></span>
                       <div>
                         <p className="text-xs font-bold text-yellow-400">Previsão de chuva</p>
                         <p className="text-xs text-yellow-200/70">{weather.rainProb}% de chance · Prefira opções cobertas</p>
@@ -1189,7 +1193,10 @@ export default function Home() {
                           className={`flex-shrink-0 px-4 py-2 rounded-2xl text-xs font-bold transition-all ${activeFilter === f.id ? 'bg-zippi-400 text-dark-950 shadow shadow-zippi-900/30' : ''}`}
                           style={activeFilter !== f.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
                         >
-                          {f.label}
+                          <div className="flex items-center gap-1.5">
+                            <f.icon size={14} />
+                            <span>{f.label}</span>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -1198,7 +1205,7 @@ export default function Home() {
                   {!isCombined && ranked.some(r => r.co2Saved > 0) && activeFilter !== 'cheapest' && (
                     <div className="mx-5 mb-4 flex items-start gap-3 rounded-2xl px-4 py-3"
                       style={{ background:'rgba(61,237,122,0.08)', border:'1px solid rgba(61,237,122,0.2)' }}>
-                      <span className="text-xl flex-shrink-0">🌍</span>
+                      <span className="flex-shrink-0 text-zippi-400"><Globe size={24} /></span>
                       <div>
                         <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Zippi</p>
                         <p className={`text-xs ${muted}`}>
@@ -1267,7 +1274,10 @@ export default function Home() {
                       }`}
                       style={exploreCity !== c.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)' } : {}}
                     >
-                      {c.emoji} {c.label}
+                      <div className="flex items-center gap-1.5">
+                        <c.icon size={14} />
+                        <span>{c.label}</span>
+                      </div>
                     </button>
                   ))}
                 </div>
