@@ -24,7 +24,7 @@ export default function Splash() {
         </div>
 
         <div className="text-center">
-          <h1 className="text-5xl font-black tracking-tight text-white">Zippi</h1>
+          <h1 className="text-5xl font-black tracking-tight text-white">Turio</h1>
           <p className="text-sm text-zippi-400/80 mt-1 font-semibold tracking-wide">
             Acesso urbano inteligente
           </p>

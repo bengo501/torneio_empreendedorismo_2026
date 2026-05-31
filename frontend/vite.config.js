@@ -19,8 +19,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png'],
       manifest: {
-        name: 'Zippi — Transporte Inteligente',
-        short_name: 'Zippi',
+        name: 'Turio — mobilidade urbana',
+        short_name: 'Turio',
         description: 'Mobilidade urbana inteligente — conecte-se à sua cidade',
         theme_color: '#3DED7A',
         background_color: '#F4F5F7',

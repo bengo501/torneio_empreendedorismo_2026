@@ -20,23 +20,43 @@ import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
 import { useTheme }    from '../context/ThemeContext.jsx'
 import { useUser }     from '../context/UserContext.jsx'
 import { EXPLORE_CATEGORIES, EXPLORE_PLACES, EXPLORE_BENTO } from '../data/explore.js'
-import { EVENTS_TODAY, EVENTS_BENTO, EVENT_CATS } from '../data/events.js'
+import { EVENTS_TODAY, EVENTS_BENTO } from '../data/events.js'
+import {
+  POA_PLACES,
+  POA_EVENT_MOCKS,
+  poaMockToEventRow,
+  filterPoaLugares,
+  filterPoaEssentials,
+  placeToMapPin,
+  sortByLocalFirst,
+} from '../data/poa/index.js'
+import { mergeNatureWithMock } from '../data/poa/mockNature.js'
+import { loadPoaNatureFeatures } from '../services/poaMapLayers.js'
+import { pinMeta } from '../data/poa/mapCategories.js'
+import {
+  LUGARES_FILTERS,
+  EVENTOS_FILTERS,
+  ESSENCIAIS_FILTERS,
+} from '../data/poa/mapCategories.js'
+import { geocodePendingPlaces, applyGeocodeCache } from '../services/poaGeocode.js'
+import PlacePreviewSheet from '../components/PlacePreviewSheet.jsx'
+import TrafficPreviewSheet from '../components/TrafficPreviewSheet.jsx'
 import { getTrafficSegments, getTrafficSummary, loadTrafficGeometry, isAlertTraffic } from '../data/traffic.js'
 import { ESSENTIAL_SERVICES } from '../data/essentials.js'
 import { fetchNatureFeatures, fetchBusStops } from '../services/overpass.js'
 import { searchEssentials } from '../services/essentialsSearch.js'
-import { fetchSymplaEvents, hasSymplaToken } from '../services/sympla.js'
+import { fetchEventsToday, fetchEventsUpcoming, hasSymplaToken } from '../services/sympla.js'
 import { fetchNearbyScooters } from '../services/scooters.js'
-import { glassSurface, explorePinColor } from '../styles/glass.js'
+import { glassSurface, explorePinColor, eventPinColor } from '../styles/glass.js'
 
 // ── Constants ────────────────────────────────────────────────────
 const NAV_H      = 60
-const HANDLE_H   = 28
-const DOCK_BAR_H = 56
+const HANDLE_H   = 22
+const DOCK_BAR_H = 48
 
 function computeSnap() {
   const avail = window.innerHeight - NAV_H
-  const peek  = HANDLE_H + DOCK_BAR_H + 10
+  const peek  = HANDLE_H + DOCK_BAR_H + 6
   const full  = Math.min(Math.round(avail * 0.88), avail - 160)
   return { peek, mid: Math.round(avail * 0.48), full }
 }
@@ -60,15 +80,28 @@ function eventsForCity(cityId) {
   return isBentoCity(cityId) ? EVENTS_BENTO : EVENTS_TODAY
 }
 
-const SAVED = [
-  { label:'Casa',     emoji:'🏠', address:'Moinhos de Vento',     lat:-30.0230, lon:-51.1988 },
-  { label:'Trabalho', emoji:'💼', address:'Centro Histórico — POA', lat:-30.0310, lon:-51.2300 },
-]
-const RECENT = [
-  { label:'Parque da Redenção',      address:'Av. José Bonifácio',        lat:-30.0355, lon:-51.2071 },
-  { label:'UFRGS Campus Centro',     address:'Av. Paulo Gama, 110',        lat:-30.0320, lon:-51.2230 },
-  { label:'Aeroporto Salgado Filho', address:'Av. Severo Dullius, 90000', lat:-29.9937, lon:-51.1714 },
-]
+function eventCityForExplore(cityId) {
+  return isBentoCity(cityId) ? 'Bento Gonçalves' : 'Porto Alegre'
+}
+
+function inferExploreCityFromCoords(lat, lon) {
+  if (kmBetween({ lat, lon }, { lat: -29.1696, lon: -51.5193 }) < 35) return 'bentogoncalves'
+  return 'poa'
+}
+
+function filterEventsByCat(events, cat) {
+  return events.filter(e => {
+    if (cat === 'todos') return true
+    if (e.cat === cat) return true
+    if (cat === 'gratuito' && (/gr[aá]tis/i.test(e.price || '') || e.price === 'Entrada livre')) return true
+    if (cat === 'hoje' && (/hoje/i.test(e.time || '') || e.highlight)) return true
+    if (cat === 'aovivo' && /ao vivo|show/i.test(`${e.title} ${e.desc || ''}`)) return true
+    if (cat === 'noturno' && /noite|noturno|bar/i.test(`${e.title} ${e.desc || ''} ${e.time || ''}`)) return true
+    if (cat === 'infantil' && /infantil|criança|família/i.test(`${e.title} ${e.desc || ''}`)) return true
+    return false
+  })
+}
+
 const LOADING_STEPS = [
   { label:'Identificando posição urbana',    icon:'📍' },
   { label:'Calculando rotas multimodais',    icon:'🗺️' },
@@ -124,6 +157,7 @@ function kmBetween(a, b) {
 const ESSENTIAL_ICONS_MAP = {
   farmacia:    Cross,
   mercado:     ShoppingBag,
+  fastfood:    UtensilsCrossed,
   restaurante: UtensilsCrossed,
   saude:       Heart,
 }
@@ -131,22 +165,22 @@ const ESSENTIAL_ICONS_MAP = {
 // ── Event Card component ─────────────────────────────────────────
 function EventCard({ event, dark, text, muted, cardStyle, onNavigate }) {
   return (
-    <div className="w-full flex items-start gap-3 p-3 rounded-2xl" style={cardStyle}>
+    <div className="w-full flex items-start gap-2.5 p-2 rounded-2xl" style={cardStyle}>
       <button type="button" onClick={() => onNavigate(event)}
-        className="flex items-start gap-3 flex-1 min-w-0 text-left active:scale-[0.98] transition-all">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+        className="flex items-start gap-2.5 flex-1 min-w-0 text-left active:scale-[0.98] transition-all">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
           style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }}>
           {event.emoji}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className={`text-sm font-bold ${text} leading-tight`}>{event.title}</p>
-            <span className={`text-[10px] font-bold flex-shrink-0 px-2 py-0.5 rounded-lg ${event.price === 'Grátis' || event.price === 'Grátis (shows especiais pagos)' ? 'text-zippi-400 bg-zippi-400/10' : 'text-orange-400 bg-orange-400/10'}`}>
+            <p className={`text-[13px] font-bold ${text} leading-tight`}>{event.title}</p>
+            <span className={`text-[9px] font-bold flex-shrink-0 px-1.5 py-0.5 rounded-md ${event.price === 'Grátis' || event.price === 'Grátis (shows especiais pagos)' ? 'text-zippi-400 bg-zippi-400/10' : 'text-orange-400 bg-orange-400/10'}`}>
               {event.price === 'Grátis' ? 'GRÁTIS' : event.price}
             </span>
           </div>
-          <p className={`text-xs ${muted} mt-0.5`}>{event.local} · {event.time}</p>
-          {event.bairro && <p className={`text-[10px] ${muted} opacity-60`}>{event.bairro}</p>}
+          <p className={`text-[11px] ${muted} leading-snug`}>{event.local} · {event.time}</p>
+          {event.bairro && <p className={`text-[9px] ${muted} opacity-60 leading-snug`}>{event.bairro}</p>}
         </div>
       </button>
       {event.url && (
@@ -185,7 +219,7 @@ export default function Home() {
   const [focus,   setFocus]   = useState(false)
   const searchTimer = useRef(null)
   const boundsTimer   = useRef(null)
-  const [natureFeatures, setNatureFeatures] = useState([])
+  const [natureFeatures, setNatureFeatures] = useState(() => mergeNatureWithMock())
 
   /* ── Route ─────────────────────────────────────────────────── */
   const [routeData,    setRouteData]    = useState(null)
@@ -213,13 +247,27 @@ export default function Home() {
 
   /* ── Explore ───────────────────────────────────────────────── */
   const [exploreCategory, setExploreCategory] = useState('todos')
-  const [exploreCity,     setExploreCity]     = useState('poa') // 'poa' | 'bentogoncalves'
+  const [essentialFilter, setEssentialFilter] = useState('farmacias')
+  const [exploreSection, setExploreSection] = useState('lugares') // 'lugares' | 'eventos'
+  const [exploreCity,     setExploreCity]     = useState('poa')
+  const [poaPlaces, setPoaPlaces] = useState([])
+  const [previewPlace, setPreviewPlace] = useState(null)
+  const [previewTraffic, setPreviewTraffic] = useState(null)
+  const [savedPlaceIds, setSavedPlaceIds] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('turio-saved-places') || '[]'))
+    } catch {
+      return new Set()
+    }
+  })
 
   /* ── Events (Hoje tab) ─────────────────────────────────────── */
   const [eventCat, setEventCat] = useState('todos')
-  const [cityEvents, setCityEvents] = useState(EVENTS_TODAY)
-  const [eventsLoading, setEventsLoading] = useState(false)
-  const [eventsSource, setEventsSource] = useState('fallback')
+  const [cityEventsToday, setCityEventsToday] = useState(EVENTS_TODAY)
+  const [cityEventsUpcoming, setCityEventsUpcoming] = useState([])
+  const [eventsLoadingToday, setEventsLoadingToday] = useState(false)
+  const [eventsLoadingUpcoming, setEventsLoadingUpcoming] = useState(false)
+  const [eventsSourceToday, setEventsSourceToday] = useState('fallback')
   const [symplaConfigured, setSymplaConfigured] = useState(false)
 
   /* ── Single-screen Ir state machine ───────────────────────── */
@@ -255,6 +303,10 @@ export default function Home() {
   useEffect(() => {
     detectGPS()
     setReports(getReports())
+    setPoaPlaces(POA_PLACES)
+    geocodePendingPlaces(POA_PLACES, { max: 8 }).then(cache => {
+      setPoaPlaces(prev => applyGeocodeCache(prev.length ? prev : POA_PLACES, cache))
+    })
   }, [])
 
   async function refreshWeather(lat, lon) {
@@ -273,7 +325,7 @@ export default function Home() {
 
   useEffect(() => {
     if (origin && pendingCenter.current) {
-      mapRef.current?.flyTo(origin.lat, origin.lon)
+      mapRef.current?.focusPoint(origin.lat, origin.lon, 15, mapSheetPadding())
       pendingCenter.current = false
     }
   }, [origin])
@@ -288,7 +340,8 @@ export default function Home() {
       const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
       setOrigin({ ...pos, label: loc.label }); setOriginLabel(loc.label)
       setLocation({ city: loc.city, neighborhood: loc.neighborhood, street: loc.street })
-      // clima é carregado pelo useEffect([origin]) ao setar setOrigin abaixo
+      setExploreCity(inferExploreCityFromCoords(pos.lat, pos.lon))
+      mapRef.current?.focusPoint(pos.lat, pos.lon, 15, mapSheetPadding())
     } catch {
       setGpsError(true)
       setOriginLabel(POA_DEFAULT.label)
@@ -310,7 +363,7 @@ export default function Home() {
       setRouteData(route)
       if (pendingCinematic.current && route?.polyline?.length > 1) {
         pendingCinematic.current = false
-        mapRef.current?.cinematicRoute(origin, dest, route.polyline)
+        mapRef.current?.cinematicRoute(origin, dest, route.polyline, mapSheetPadding(SNAP.peek))
       }
     })
     // carrega paradas de ônibus próximas à origem e ao destino
@@ -352,7 +405,6 @@ export default function Home() {
     next[activeDestIdx] = { label: place.label, lat: place.lat, lon: place.lon }
     pendingCinematic.current = true
     setDestinations(next)
-    setLocationZoom('in') // reseta toggle para o estado inicial
     setQuery(''); setResults([]); setFocus(false)
     setActiveTab('ir')
     // fecha a sheet para o mapa ficar visível durante a animação
@@ -386,39 +438,30 @@ export default function Home() {
     const prefs = FILTERS.find(f => f.id === fId)?.prefs
     setRanked(getRankedServices(resultKm, prefs))
   }
+  function mapSheetPadding(height = sheetH) {
+    return { bottom: height + NAV_H + 24 }
+  }
+
+  function syncMapToSheet(height) {
+    if (!origin?.lat || !mapRef.current) return
+    const zoom = mapRef.current.getZoom?.() ?? 15
+    mapRef.current.focusPoint(origin.lat, origin.lon, zoom, mapSheetPadding(height))
+  }
+
   function backToSearch() {
     setSheetState('search')
     setSelected(null)
+    setRouteData(null)
+    setDestinations([{ label:'', lat:null, lon:null }])
     animateSheet(SNAP.peek)
-    // re-centra o mapa na posição do usuário ao apagar o caminho
-    if (origin?.lat && origin?.lon) {
-      mapRef.current?.flyTo(origin.lat, origin.lon)
+    if (origin?.lat) {
+      setTimeout(() => syncMapToSheet(SNAP.peek), 380)
     }
   }
 
-  // 'out' = zoom out ativo | 'in' = zoom in no usuário | null = estado inicial
-  const [locationZoom, setLocationZoom] = useState('in')
-
   function centerOnUser() {
-    if (!origin) { detectGPS(); return }
-    const dest = destinations[0]
-    const hasDest = Boolean(dest?.lat)
-
-    if (locationZoom === 'in') {
-      // primeiro clique: zoom out
-      if (hasDest) {
-        // mostra usuário + destino juntos
-        mapRef.current?.fitUserAndDest(origin, dest)
-      } else {
-        // zoom out geral da cidade (nível 13)
-        mapRef.current?.flyTo(origin.lat, origin.lon, 13)
-      }
-      setLocationZoom('out')
-    } else {
-      // segundo clique: zoom in no usuário
-      mapRef.current?.flyTo(origin.lat, origin.lon, 16)
-      setLocationZoom('in')
-    }
+    if (!origin?.lat) { detectGPS(); return }
+    mapRef.current?.focusPoint(origin.lat, origin.lon, 16, mapSheetPadding())
   }
 
   function expandSheet(target = SNAP.full) {
@@ -426,8 +469,7 @@ export default function Home() {
   }
 
   function exploreCityName() {
-    if (isBentoCity(exploreCity)) return 'Bento Gonçalves'
-    return location.city || 'Porto Alegre'
+    return location.city || eventCityForExplore(exploreCity)
   }
 
   function exploreGreeting() {
@@ -439,13 +481,6 @@ export default function Home() {
     const city = EXPLORE_CITIES.find(c => c.id === cityId)
     if (!city) return
     mapRef.current?.flyTo(city.lat, city.lon, 14)
-    if (isBentoCity(cityId)) {
-      setLocation(prev => ({ ...prev, city: 'Bento Gonçalves', neighborhood: 'Centro' }))
-    } else if (origin?.city) {
-      setLocation(prev => ({ ...prev, city: origin.city, neighborhood: origin.neighborhood ?? prev.neighborhood }))
-    } else {
-      setLocation(prev => ({ ...prev, city: 'Porto Alegre' }))
-    }
   }
 
   function dockPlaceholder() {
@@ -458,36 +493,76 @@ export default function Home() {
   /* ── Tab navigation ────────────────────────────────────────── */
   function switchTab(tab) {
     setActiveTab(tab)
+    if (tab === 'essenciais' && !isBentoCity(exploreCity)) {
+      setPreviewPlace(null)
+    }
     if (tab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
     else animateSheet(SNAP.mid)
   }
 
   async function openEssentialService(service) {
-    setActiveTab('ir')
-    setSheetState('search')
-    setActiveDestIdx(0)
-    setFocus(true)
-    setQuery(service.query)
-    expandSheet(SNAP.full)
+    const filterMap = {
+      farmacia: 'farmacias',
+      mercado: 'mercados',
+      restaurante: 'restaurantes',
+      saude: 'saude',
+      fastfood: 'fastfood',
+    }
+    setEssentialFilter(filterMap[service.id] || 'farmacias')
+    setActiveTab('essenciais')
+    setPreviewPlace(null)
+    expandSheet(SNAP.mid)
 
-    const cityMeta = EXPLORE_CITIES.find(c => c.id === exploreCity) ?? EXPLORE_CITIES[0]
+    if (isBentoCity(exploreCity)) {
+      setActiveTab('ir')
+      setSheetState('search')
+      setFocus(true)
+      setQuery(service.query)
+      expandSheet(SNAP.full)
+      const cityMeta = EXPLORE_CITIES.find(c => c.id === exploreCity) ?? EXPLORE_CITIES[0]
+      const places = await searchEssentials(service, {
+        lat: origin?.lat ?? cityMeta.lat,
+        lon: origin?.lon ?? cityMeta.lon,
+        city: location.city || cityMeta.displayName,
+        state: location.state || 'RS',
+      })
+      setResults(places.length ? places : [])
+      return
+    }
+
+    const data = poaPlaces.length ? poaPlaces : POA_PLACES
+    const mockList = sortByLocalFirst(filterPoaEssentials(filterMap[service.id] || 'farmacias', data))
+    const cityMeta = EXPLORE_CITIES[0]
     const searchLat = origin?.lat ?? cityMeta.lat
     const searchLon = origin?.lon ?? cityMeta.lon
-    const cityName = location.city || cityMeta.displayName
-
-    setResults([{ label: `Buscando ${service.label.toLowerCase()}…`, lat: searchLat, lon: searchLon }])
+    const cityName = location.city || 'Porto Alegre'
 
     const places = await searchEssentials(service, {
       lat: searchLat,
       lon: searchLon,
       city: cityName,
       state: location.state || 'RS',
-    })
-    setResults(places.length ? places : [{
-      label: `Nenhum ${service.label.toLowerCase()} encontrado perto de ${cityName}`,
-      lat: searchLat,
-      lon: searchLon,
-    }])
+    }).catch(() => [])
+
+    if (places.length < 2 && mockList.length) {
+      setResults(mockList.map(p => ({
+        label: p.name,
+        lat: p.lat,
+        lon: p.lng,
+        fullLabel: p.address,
+        poaPlace: p,
+      })))
+    } else if (places.length) {
+      setResults(places)
+    } else {
+      setResults(mockList.map(p => ({
+        label: p.name,
+        lat: p.lat,
+        lon: p.lng,
+        fullLabel: p.address,
+        poaPlace: p,
+      })))
+    }
   }
 
   async function handleGuideVoiceResult({ destination }) {
@@ -518,6 +593,8 @@ export default function Home() {
       sheetRef.current.style.height = targetH + 'px'
     }
     setSheetH(targetH)
+    document.documentElement.style.setProperty('--sheet-h', `${targetH + NAV_H}px`)
+    setTimeout(() => syncMapToSheet(targetH), 360)
   }
 
   /* ── Drag handlers ─────────────────────────────────────────── */
@@ -569,8 +646,14 @@ export default function Home() {
   }
 
   function togglePinCreationMode() {
-    setPinCreationMode(v => !v)
-    setMapClickMode(false)
+    setPinCreationMode(v => {
+      const next = !v
+      if (next) {
+        setMapClickMode(false)
+        animateSheet(SNAP.peek)
+      }
+      return next
+    })
   }
   async function handleVoiceResult({ destination, preference }) {
     setActiveFilter(preference)
@@ -593,11 +676,19 @@ export default function Home() {
 
   const [trafficSegments, setTrafficSegments] = useState(() => getTrafficSegments(hour, dayOfWeek))
   const trafficSummary  = useMemo(() => getTrafficSummary(trafficSegments), [trafficSegments])
-  const showTraffic     = activeTab === 'ir' && sheetState === 'search'
+  const showTraffic     = true
 
   useEffect(() => {
-    setTrafficSegments(getTrafficSegments(hour, dayOfWeek))
-  }, [hour, dayOfWeek])
+    if (isBentoCity(exploreCity)) return
+    let cancelled = false
+    loadTrafficGeometry().then(segments => {
+      if (!cancelled && segments?.length) setTrafficSegments(segments)
+    })
+    loadPoaNatureFeatures().then(features => {
+      if (!cancelled && features?.length) setNatureFeatures(features)
+    })
+    return () => { cancelled = true }
+  }, [exploreCity])
 
   useEffect(() => {
     hasSymplaToken().then(setSymplaConfigured)
@@ -605,62 +696,145 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false
-    const cityMeta = EXPLORE_CITIES.find(c => c.id === exploreCity) ?? EXPLORE_CITIES[0]
-    const staticEvents = eventsForCity(exploreCity)
-    setCityEvents(staticEvents)
-    setEventsLoading(true)
+    const cityName = eventCityForExplore(exploreCity)
+    const staticToday = isBentoCity(exploreCity)
+      ? eventsForCity(exploreCity)
+      : [
+          ...eventsForCity(exploreCity),
+          ...POA_EVENT_MOCKS.map(poaMockToEventRow),
+        ]
+    setCityEventsToday(staticToday)
+    setEventsLoadingToday(true)
 
-    fetchSymplaEvents(cityMeta.displayName, 'RS')
+    fetchEventsToday(cityName, 'RS')
       .then(({ events, source }) => {
         if (cancelled) return
         if (events.length) {
           const symplaTitles = new Set(events.map(e => e.title.toLowerCase()))
-          const extra = staticEvents.filter(e => !symplaTitles.has(e.title.toLowerCase()))
-          setCityEvents([...events, ...extra].slice(0, 32))
-          setEventsSource(extra.length ? 'mixed' : source)
+          const extra = staticToday.filter(e => !symplaTitles.has(e.title.toLowerCase()))
+          setCityEventsToday([...events, ...extra].slice(0, 24))
+          setEventsSourceToday(extra.length ? 'mixed' : source)
         } else {
-          setCityEvents(staticEvents)
-          setEventsSource('fallback')
+          setCityEventsToday(staticToday)
+          setEventsSourceToday('fallback')
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setCityEvents(staticEvents)
-          setEventsSource('fallback')
+          setCityEventsToday(staticToday)
+          setEventsSourceToday('fallback')
         }
       })
       .finally(() => {
-        if (!cancelled) setEventsLoading(false)
+        if (!cancelled) setEventsLoadingToday(false)
+      })
+
+    return () => { cancelled = true }
+  }, [exploreCity])
+
+  useEffect(() => {
+    let cancelled = false
+    const cityName = eventCityForExplore(exploreCity)
+    setEventsLoadingUpcoming(true)
+
+    fetchEventsUpcoming(cityName, 'RS')
+      .then(({ events }) => {
+        if (cancelled) return
+        const fallbackUpcoming = isBentoCity(exploreCity)
+          ? eventsForCity(exploreCity)
+          : POA_EVENT_MOCKS.map(poaMockToEventRow)
+        setCityEventsUpcoming(events.length ? events : fallbackUpcoming)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCityEventsUpcoming(isBentoCity(exploreCity)
+            ? eventsForCity(exploreCity)
+            : POA_EVENT_MOCKS.map(poaMockToEventRow))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEventsLoadingUpcoming(false)
       })
 
     return () => { cancelled = true }
   }, [exploreCity])
 
   const handleMapBoundsChange = useCallback((bbox) => {
+    if (!isBentoCity(exploreCity)) return
     clearTimeout(boundsTimer.current)
     boundsTimer.current = setTimeout(async () => {
       const spanLat = bbox.north - bbox.south
       const spanLon = bbox.east - bbox.west
       if (spanLat > 0.12 || spanLon > 0.12) return
       try {
-        const [segments, nature] = await Promise.all([
-          loadTrafficGeometry(bbox, hour, dayOfWeek),
-          fetchNatureFeatures(bbox),
-        ])
-        setTrafficSegments(segments)
-        setNatureFeatures(nature)
-      } catch { /* mantém dados anteriores */ }
+        const nature = await fetchNatureFeatures(bbox).catch(() => [])
+        setNatureFeatures(nature?.length ? nature : mergeNatureWithMock())
+      } catch {
+        setNatureFeatures(mergeNatureWithMock())
+      }
     }, 500)
-  }, [hour, dayOfWeek])
+  }, [exploreCity])
 
   const eventsFiltered = useMemo(() => (
-    cityEvents
-      .filter(e => eventCat === 'todos' || e.cat === eventCat || (eventCat === 'gratuito' && (e.price === 'Grátis' || e.price === 'Entrada livre' || e.price === 'Grátis (shows especiais pagos)')))
-  ), [cityEvents, eventCat])
+    filterEventsByCat(cityEventsToday, eventCat)
+  ), [cityEventsToday, eventCat])
+
+  const upcomingFiltered = useMemo(() => {
+    let list = cityEventsUpcoming
+    if (exploreSection === 'eventos') {
+      list = filterEventsByCat(list, eventCat)
+    }
+    return list.slice(0, 24)
+  }, [cityEventsUpcoming, eventCat, exploreSection])
+
+  const poaData = poaPlaces.length ? poaPlaces : POA_PLACES
+
+  const essentialCounts = useMemo(() => {
+    if (isBentoCity(exploreCity)) return {}
+    return Object.fromEntries(
+      ESSENCIAIS_FILTERS.map(f => [f.id, filterPoaEssentials(f.id, poaData).length]),
+    )
+  }, [exploreCity, poaData])
+
+  const poaListForTab = useMemo(() => {
+    if (isBentoCity(exploreCity)) return []
+    if (activeTab === 'essenciais') {
+      return sortByLocalFirst(filterPoaEssentials(essentialFilter, poaData))
+    }
+    if (activeTab === 'explorar' && exploreSection === 'lugares') {
+      return sortByLocalFirst(filterPoaLugares(exploreCategory, poaData))
+    }
+    return []
+  }, [exploreCity, activeTab, essentialFilter, exploreCategory, exploreSection, poaData])
 
   const alwaysVisiblePins = useMemo(() => {
+    const events = activeTab === 'hoje'
+      ? eventsFiltered
+      : activeTab === 'explorar' && exploreSection === 'eventos'
+        ? upcomingFiltered
+        : []
+
+    const poaPins = poaListForTab.map(placeToMapPin)
+
+    if (!isBentoCity(exploreCity) && poaPins.length) {
+      const eventPins = events
+        .filter(e => e.lat)
+        .map(e => ({
+          id: `ev-${e.id}`,
+          lat: e.lat,
+          lon: e.lon,
+          label: e.title,
+          desc: `${e.local} · ${e.time}`,
+          emoji: e.emoji,
+          category: e.cat,
+          color: eventPinColor(e.cat),
+          type: 'event',
+          event: e,
+        }))
+      return [...poaPins, ...eventPins]
+    }
+
     const places = placesForCity(exploreCity)
-    const events = cityEvents
     const explorePins = places.map(p => ({
       id: p.id,
       lat: p.lat,
@@ -683,12 +857,12 @@ export default function Home() {
         desc: `${e.local} · ${e.time}`,
         emoji: e.emoji,
         category: e.cat,
-        color: null,
+        color: eventPinColor(e.cat),
         type: 'event',
         event: e,
       }))
     return [...explorePins, ...eventPins]
-  }, [exploreCity, cityEvents])
+  }, [exploreCity, cityEventsToday, cityEventsUpcoming, activeTab, exploreSection, poaListForTab, eventsFiltered, upcomingFiltered])
 
   const notificationItems = useMemo(() => {
     const items = []
@@ -706,7 +880,7 @@ export default function Home() {
         place: p,
       })
     })
-    const upcoming = cityEvents
+    const upcoming = [...cityEventsToday, ...cityEventsUpcoming]
       .filter(e => e.highlight || e.price === 'Grátis' || e.price === 'Entrada livre')
       .slice(0, 4)
     upcoming.forEach(ev => {
@@ -720,7 +894,7 @@ export default function Home() {
       })
     })
     return items.slice(0, 8)
-  }, [origin, exploreCity, cityEvents])
+  }, [origin, exploreCity, cityEventsToday, cityEventsUpcoming])
 
   const alerts = useMemo(() => {
     const items = []
@@ -733,7 +907,7 @@ export default function Home() {
       })
     }
     trafficSegments
-      .filter(s => isAlertTraffic(s.level))
+      .filter(s => isAlertTraffic(s.level, s))
       .slice(0, 4)
       .forEach(s => {
         items.push({
@@ -758,19 +932,78 @@ export default function Home() {
   function handleAlertClick(alert) {
     if (alert.type === 'traffic' && alert.segment?.path?.length) {
       const mid = alert.segment.path[Math.floor(alert.segment.path.length / 2)]
-      mapRef.current?.flyTo(mid[0], mid[1], 15)
+      mapRef.current?.focusPoint(mid[0], mid[1], 15, mapSheetPadding())
+      setPreviewTraffic(alert.segment)
+      setPreviewPlace(null)
+      animateSheet(SNAP.peek)
     }
+  }
+
+  function handleTrafficClick(segment) {
+    if (!segment?.path?.length) return
+    const mid = segment.path[Math.floor(segment.path.length / 2)]
+    mapRef.current?.focusPoint(mid[0], mid[1], 15, mapSheetPadding())
+    setPreviewPlace(null)
+    setPreviewTraffic(segment)
+    animateSheet(SNAP.peek)
+  }
+
+  function handleTrafficAlternatives() {
+    if (!previewTraffic) return
+    setPreviewTraffic(null)
+    setActiveTab('ir')
+    expandSheet(SNAP.mid)
+  }
+
+  function handleTrafficAskAi() {
+    if (!previewTraffic) return
+    setVoiceMode('guide')
+    setPreviewTraffic(null)
   }
 
   function handlePlacePinClick(pin) {
     if (pin.type === 'event' && pin.event) {
+      setPreviewPlace(null)
       navigateToEvent(pin.event)
       return
     }
-    if (pin.place) {
-      selectPlace({ label: pin.place.name, lat: pin.place.lat, lon: pin.place.lon })
-      expandSheet(SNAP.mid)
+    const place = pin.place
+    if (!place) return
+    const lat = place.lat
+    const lon = place.lng ?? place.lon
+    if (lat != null) {
+      mapRef.current?.focusPoint(lat, lon, 16, mapSheetPadding())
     }
+    setPreviewPlace(place)
+    animateSheet(SNAP.peek)
+  }
+
+  function handlePreviewRoute() {
+    if (!previewPlace?.lat) return
+    setPreviewPlace(null)
+    selectPlace({
+      label: previewPlace.name,
+      lat: previewPlace.lat,
+      lon: previewPlace.lng ?? previewPlace.lon,
+    })
+    setActiveTab('ir')
+    expandSheet(SNAP.mid)
+  }
+
+  function handlePreviewAskAi() {
+    if (!previewPlace) return
+    setVoiceMode('guide')
+    setPreviewPlace(null)
+  }
+
+  function toggleSavePlace(id) {
+    setSavedPlaceIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      localStorage.setItem('turio-saved-places', JSON.stringify([...next]))
+      return next
+    })
   }
 
   // Text class helpers
@@ -801,6 +1034,7 @@ export default function Home() {
           scooterPins={scooterPins}
           onMapClick={handleMapClick}
           onPlacePinClick={handlePlacePinClick}
+          onTrafficClick={handleTrafficClick}
           onBoundsChange={handleMapBoundsChange}
           dark={dark}
         />
@@ -862,17 +1096,11 @@ export default function Home() {
               <button
                 onClick={centerOnUser}
                 className={pill}
-                style={{
-                  ...glassPill,
-                  ...(locationZoom === 'out' ? { boxShadow: '0 0 0 2px rgba(61,237,122,0.7)' } : {}),
-                }}
-                aria-label="centralizar no usuário"
-                title={locationZoom === 'in' ? 'Ver contexto' : 'Zoom no usuário'}
+                style={glassPill}
+                aria-label="focar no usuário"
+                title="focar no usuário"
               >
-                <Crosshair
-                  size={16}
-                  className={locationZoom === 'out' ? 'text-zippi-400' : dark ? 'text-white' : 'text-gray-800'}
-                />
+                <Crosshair size={16} className={dark ? 'text-white' : 'text-gray-800'} />
               </button>
               <button onClick={() => navigate('/profile')} className={pill} style={glassPill} aria-label="perfil">
                 <User2 size={16} className={dark ? 'text-white' : 'text-gray-800'} />
@@ -907,10 +1135,28 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── BOTÃO IA (acima da dock, direita) ─────────────────────── */}
+      <PlacePreviewSheet
+        place={previewPlace}
+        dark={dark}
+        saved={previewPlace ? savedPlaceIds.has(previewPlace.id) : false}
+        onClose={() => setPreviewPlace(null)}
+        onRoute={handlePreviewRoute}
+        onAskAi={handlePreviewAskAi}
+        onSave={() => previewPlace && toggleSavePlace(previewPlace.id)}
+      />
+
+      <TrafficPreviewSheet
+        segment={previewTraffic}
+        dark={dark}
+        onClose={() => setPreviewTraffic(null)}
+        onAlternatives={handleTrafficAlternatives}
+        onAskAi={handleTrafficAskAi}
+      />
+
+      {/* ── BOTÃO IA (acima da dock, direita) ── */}
       <div
-        className="absolute right-4 z-[25] pointer-events-auto"
-        style={{ bottom: `calc(var(--sheet-h, 94px) + 10px)`, transition: 'bottom 0.35s cubic-bezier(0.32,0.72,0,1)' }}
+        className="absolute right-4 z-[35] pointer-events-auto"
+        style={{ bottom: `calc(var(--sheet-h, 76px) + 12px)`, transition: 'bottom 0.35s cubic-bezier(0.32,0.72,0,1)' }}
       >
         <button
           onClick={() => setVoiceMode('guide')}
@@ -932,6 +1178,7 @@ export default function Home() {
         style={{
           bottom: NAV_H,
           height: sheetH,
+          pointerEvents: pinCreationMode ? 'none' : 'auto',
           ...glassPrimary,
           borderRadius: '28px 28px 0 0',
           borderBottom: 'none',
@@ -973,9 +1220,6 @@ export default function Home() {
                     : activeTab === 'hoje'
                       ? 'Hoje'
                       : 'Essenciais'}
-                  {activeTab === 'hoje' && (
-                    <span className={`font-normal ${muted}`}> · toque nos pins do mapa</span>
-                  )}
                 </p>
               </div>
             )}
@@ -1063,41 +1307,6 @@ export default function Home() {
                   {/* Saved + Recent + Explore section */}
                   {!focus && (
                     <>
-                      {/* Saved shortcuts */}
-                      <div className="flex gap-2 mb-4">
-                        {SAVED.map(s => (
-                          <button key={s.label}
-                            onClick={() => selectPlace({ label:s.address, lat:s.lat, lon:s.lon })}
-                            className="flex-1 flex items-center gap-2.5 rounded-2xl px-3 py-3 active:scale-95 transition-transform"
-                            style={cardStyle}
-                          >
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                              style={{ background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
-                              {s.emoji}
-                            </div>
-                            <span className={`text-sm font-semibold ${text}`}>{s.label}</span>
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Recentes */}
-                      <p className={`text-[10px] ${muted} font-bold uppercase tracking-widest mb-2`}>Recentes</p>
-                      <div className="flex flex-col mb-4">
-                        {RECENT.map(r => (
-                          <button key={r.label}
-                            onClick={() => selectPlace({ label:r.address, lat:r.lat, lon:r.lon })}
-                            className={`flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors text-left ${dark ? 'active:bg-white/5' : 'active:bg-black/5'}`}
-                          >
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                              style={glassSecondary}>🕐</div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-semibold ${text}`}>{r.label}</p>
-                              <p className={`text-xs ${muted} truncate`}>{r.address}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-
                       <button
                         onClick={() => switchTab('explorar')}
                         className="w-full mt-2 flex items-center justify-between px-4 py-3 rounded-2xl active:scale-[0.98] transition-all"
@@ -1200,7 +1409,7 @@ export default function Home() {
                       style={{ background:'rgba(61,237,122,0.08)', border:'1px solid rgba(61,237,122,0.2)' }}>
                       <span className="text-xl flex-shrink-0">🌍</span>
                       <div>
-                        <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Zippi</p>
+                        <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Turio</p>
                         <p className={`text-xs ${muted}`}>
                           Patinete ou bike economiza até{' '}
                           <span className="text-zippi-400 font-semibold">{(resultKm * 0.12).toFixed(2)} kg de CO₂</span>!
@@ -1245,7 +1454,7 @@ export default function Home() {
                   )}
 
                   <p className={`text-center text-xs mt-4 mb-2 px-5 ${dim}`}>
-                    Preços estimados. Zippi não possui vínculo com os serviços.
+                    Preços estimados. Turio não possui vínculo com os serviços.
                   </p>
                 </div>
               )}
@@ -1255,30 +1464,30 @@ export default function Home() {
           {/* ══════════ TAB: EXPLORAR ══════════ */}
           {activeTab === 'explorar' && (
             <div className="pb-4">
-              {/* City selector */}
+              {/* lugares | eventos */}
               <div className="px-5 mb-3">
-                <div className="flex gap-1.5 flex-wrap">
-                  {EXPLORE_CITIES.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => switchExploreCity(c.id)}
-                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all active:scale-95 ${
-                        exploreCity === c.id ? 'bg-zippi-400 text-dark-950 shadow' : ''
-                      }`}
-                      style={exploreCity !== c.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)' } : {}}
+                <div className="flex gap-1 p-0.5 rounded-xl" style={cardStyle}>
+                  {[
+                    { id: 'lugares', label: 'Lugares' },
+                    { id: 'eventos', label: 'Eventos' },
+                  ].map(tab => (
+                    <button key={tab.id} type="button" onClick={() => setExploreSection(tab.id)}
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold transition-all ${exploreSection === tab.id ? 'bg-zippi-400 text-dark-950' : ''}`}
+                      style={exploreSection !== tab.id ? { color: dark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' } : {}}
                     >
-                      {c.emoji} {c.label}
+                      {tab.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Category filter */}
+              {exploreSection === 'lugares' && (
+                <>
               <div className="px-5 mb-3">
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                  {EXPLORE_CATEGORIES.filter(c => c.id !== 'compras' || exploreCity === 'poa').map(cat => (
-                    <button key={cat.id} onClick={() => setExploreCategory(cat.id)}
-                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${
+                  {(isBentoCity(exploreCity) ? EXPLORE_CATEGORIES : LUGARES_FILTERS).map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setExploreCategory(cat.id)}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${
                         exploreCategory === cat.id ? 'bg-zippi-400 text-dark-950' : ''
                       }`}
                       style={exploreCategory !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
@@ -1290,83 +1499,176 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Collections header */}
               <div className="px-5 mb-2">
                 <p className={`text-[10px] font-bold uppercase tracking-widest ${muted}`}>
-                  {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
+                  {isBentoCity(exploreCity) ? 'bento gonçalves · vale dos vinhedos' : 'porto alegre · copiloto urbano'}
                 </p>
               </div>
 
-              {/* List view */}
-              <div className="px-5 flex flex-col gap-2">
-                {placesForCity(exploreCity)
-                  .filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
-                  .map(place => {
-                    const cat = EXPLORE_CATEGORIES.find(c => c.id === place.category)
-                    return (
-                      <button key={place.id}
-                        onClick={() => selectPlace({ label:place.name, lat:place.lat, lon:place.lon })}
-                        className="flex items-center gap-3 p-3 rounded-2xl text-left active:scale-[0.98] transition-all"
-                        style={cardStyle}
-                      >
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                          style={{ background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                          {cat?.emoji ?? '📍'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold ${text}`}>{place.name}</p>
-                          <p className={`text-xs ${muted} truncate`}>{place.desc}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          {place.freeAccess && <span className="text-[9px] font-black text-zippi-400">GRÁTIS</span>}
-                          <ChevronRight size={14} className={dim} />
-                        </div>
-                      </button>
-                    )
-                  })}
+              <div className="px-5 flex flex-col gap-1.5">
+                {(isBentoCity(exploreCity)
+                  ? placesForCity(exploreCity).filter(p => exploreCategory === 'todos' || p.category === exploreCategory)
+                  : poaListForTab
+                ).map(place => {
+                  const catId = place.mapFilter || place.category
+                  const cat = (isBentoCity(exploreCity) ? EXPLORE_CATEGORIES : LUGARES_FILTERS).find(c => c.id === catId)
+                    || LUGARES_FILTERS.find(c => c.id === 'todos')
+                  const label = place.name
+                  const desc = place.preview || place.desc
+                  const lat = place.lat
+                  const lon = place.lng ?? place.lon
+                  return (
+                    <button key={place.id} type="button"
+                      onClick={() => {
+                        if (isBentoCity(exploreCity)) {
+                          selectPlace({ label, lat, lon })
+                        } else {
+                          setPreviewPlace(place)
+                          if (lat != null) mapRef.current?.focusPoint(lat, lon, 16, mapSheetPadding())
+                          animateSheet(SNAP.peek)
+                        }
+                      }}
+                      className="flex items-center gap-2.5 p-2 rounded-2xl text-left active:scale-[0.98] transition-all"
+                      style={cardStyle}
+                    >
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0"
+                        style={{ background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
+                        {cat?.emoji ?? '📍'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-[13px] font-bold leading-tight ${text}`}>{label}</p>
+                        <p className={`text-[11px] ${muted} truncate leading-snug`}>{desc}</p>
+                        {place.isLocalBusiness && (
+                          <p className="text-[9px] font-bold text-emerald-400 leading-snug">economia local</p>
+                        )}
+                      </div>
+                      <ChevronRight size={14} className={dim} />
+                    </button>
+                  )
+                })}
               </div>
+                </>
+              )}
+
+              {exploreSection === 'eventos' && (
+                <>
+              <div className="px-5 mb-2">
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${muted}`}>
+                  próximas 2 semanas · {eventCityForExplore(exploreCity)}
+                </p>
+              </div>
+              <div className="px-5 mb-3">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                  {(isBentoCity(exploreCity) ? EVENTOS_FILTERS.filter(c => ['todos', 'musica', 'cultura', 'feira', 'gastronomia', 'esporte', 'gratuito'].includes(c.id)) : EVENTOS_FILTERS).map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setEventCat(cat.id)}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${eventCat === cat.id ? 'bg-zippi-400 text-dark-950' : ''}`}
+                      style={eventCat !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                    >
+                      <span className="text-[12px]">{cat.emoji}</span>
+                      <span>{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="px-5 flex flex-col gap-1.5">
+                {eventsLoadingUpcoming && (
+                  <p className={`text-xs ${muted} text-center py-2`}>carregando eventos…</p>
+                )}
+                {!eventsLoadingUpcoming && upcomingFiltered.length === 0 ? (
+                  <p className={`text-xs ${muted} py-4 text-center`}>nenhum evento encontrado.</p>
+                ) : upcomingFiltered.map(ev => (
+                  <EventCard
+                    key={ev.id} event={ev}
+                    dark={dark} text={text} muted={muted} cardStyle={cardStyle}
+                    onNavigate={navigateToEvent}
+                  />
+                ))}
+              </div>
+                </>
+              )}
             </div>
           )}
 
           {/* ══════════ TAB: ESSENCIAIS ══════════ */}
           {activeTab === 'essenciais' && (
-            <div className="pb-4 px-5">
-              <p className={`text-[10px] font-bold uppercase tracking-widest mb-3 ${muted}`}>
-                serviços básicos
-              </p>
-              <div className="grid grid-cols-2 gap-2.5">
-                {ESSENTIAL_SERVICES.map(svc => {
-                  const Icon = ESSENTIAL_ICONS_MAP[svc.id] ?? ShoppingBag
-                  return (
-                    <button
-                      key={svc.id}
-                      type="button"
-                      onClick={() => openEssentialService(svc)}
-                      className="flex flex-col items-start gap-2 p-3.5 rounded-2xl text-left active:scale-[0.98] transition-all"
-                      style={{
-                        ...cardStyle,
-                        border: `1px solid ${dark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.2)'}`,
-                      }}
-                    >
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center"
-                        style={{ background: 'rgba(59,130,246,0.15)' }}
-                      >
-                        <Icon size={18} className="text-blue-400" strokeWidth={2} />
-                      </div>
-                      <div>
-                        <p className={`text-sm font-bold ${text}`}>{svc.label}</p>
-                        <p className="text-[10px] font-semibold text-blue-400 mt-0.5">
-                          {svc.nearby} próximos · {svc.distanceKm} km
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })}
+            <div className="pb-4">
+              <div className="px-5 mb-3">
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${muted}`}>
+                  essenciais · porto alegre
+                </p>
+                <p className={`text-xs ${muted} mt-1`}>
+                  escolha a categoria — lista e pins no mapa mudam juntos
+                </p>
               </div>
-              <p className={`text-xs ${muted} mt-4 leading-relaxed`}>
-                farmácias, mercados, restaurantes e saúde perto de você em porto alegre.
-              </p>
+              <div className="px-5 mb-3">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                  {ESSENCIAIS_FILTERS.map(cat => (
+                    <button key={cat.id} type="button" onClick={() => {
+                      setEssentialFilter(cat.id)
+                      setPreviewPlace(null)
+                    }}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${essentialFilter === cat.id ? 'bg-zippi-400 text-dark-950' : ''}`}
+                      style={essentialFilter !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                    >
+                      <span className="text-[13px]">{cat.emoji}</span>
+                      <span>{cat.label}</span>
+                      {!isBentoCity(exploreCity) && essentialCounts[cat.id] != null && (
+                        <span className={`text-[9px] px-1 rounded-md ${essentialFilter === cat.id ? 'bg-dark-950/20' : 'opacity-60'}`}>
+                          {essentialCounts[cat.id]}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {!isBentoCity(exploreCity) ? (
+                <div className="px-5 flex flex-col gap-1.5">
+                  {poaListForTab.length === 0 ? (
+                    <p className={`text-xs ${muted} py-4 text-center`}>nenhum local nesta categoria.</p>
+                  ) : poaListForTab.map(place => {
+                    const meta = pinMeta(place.pinType)
+                    return (
+                      <button key={place.id} type="button"
+                        onClick={() => {
+                          setPreviewPlace(place)
+                          if (place.lat != null) mapRef.current?.focusPoint(place.lat, place.lng, 16, mapSheetPadding())
+                          animateSheet(SNAP.peek)
+                        }}
+                        className="flex items-center gap-2.5 p-2 rounded-2xl text-left active:scale-[0.98] transition-all"
+                        style={cardStyle}
+                      >
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-base flex-shrink-0"
+                          style={{ background: `${meta.color}22` }}>
+                          {meta.emoji}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[13px] font-bold leading-tight ${text}`}>{place.name}</p>
+                          <p className={`text-[11px] ${muted} truncate leading-snug`}>{place.address || place.preview}</p>
+                          {place.brand && (
+                            <p className="text-[9px] font-semibold leading-snug" style={{ color: meta.color }}>{place.brand}</p>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-bold text-zippi-400 flex-shrink-0">{place.priceRange}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="px-5 grid grid-cols-2 gap-2.5">
+                  {ESSENTIAL_SERVICES.map(svc => {
+                    const Icon = ESSENTIAL_ICONS_MAP[svc.id] ?? ShoppingBag
+                    return (
+                      <button key={svc.id} type="button" onClick={() => openEssentialService(svc)}
+                        className="flex flex-col items-start gap-2 p-3.5 rounded-2xl text-left active:scale-[0.98] transition-all"
+                        style={cardStyle}
+                      >
+                        <Icon size={18} className="text-blue-400" />
+                        <p className={`text-sm font-bold ${text}`}>{svc.label}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -1374,28 +1676,14 @@ export default function Home() {
           {activeTab === 'hoje' && (
             <div className="pb-4">
               {/* Header */}
-              <div className="px-5 mb-3 flex items-center justify-between">
-                <div>
-                  <p className={`text-sm font-black ${text}`}>
-                    {new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' })}
-                  </p>
-                  <p className={`text-xs ${muted}`}>
-                    {isBentoCity(exploreCity) ? 'Bento Gonçalves · Vale dos Vinhedos' : 'Porto Alegre'}
-                    {eventsSource === 'sympla' || eventsSource === 'mixed' ? ' · sympla' : ''}
-                    {!symplaConfigured && !eventsLoading ? ' · curadoria local' : ''}
-                  </p>
-                </div>
-                {/* City toggle */}
-                <div className="flex gap-1 p-0.5 rounded-xl" style={cardStyle}>
-                  {EXPLORE_CITIES.map(c => (
-                    <button key={c.id} onClick={() => switchExploreCity(c.id)}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${exploreCity === c.id ? 'bg-zippi-400 text-dark-950' : ''}`}
-                      style={exploreCity !== c.id ? { color: dark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' } : {}}
-                    >
-                      {c.id === 'poa' ? 'POA' : 'BG'}
-                    </button>
-                  ))}
-                </div>
+              <div className="px-5 mb-3">
+                <p className={`text-sm font-black ${text}`}>
+                  {new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' })}
+                </p>
+                <p className={`text-xs ${muted}`}>
+                  {location.city || eventCityForExplore(exploreCity)} · hoje
+                  {eventsSourceToday === 'sympla' ? ' · sympla' : eventsSourceToday === 'mixed' ? ' · sympla + local' : ' · curadoria local'}
+                </p>
               </div>
 
               {/* Highlight event */}
@@ -1403,19 +1691,19 @@ export default function Home() {
                 const ev = eventsFiltered.find(e => e.highlight)
                 return (
                   <button onClick={() => navigateToEvent(ev)}
-                    className="mx-5 mb-3 w-[calc(100%-40px)] rounded-2xl overflow-hidden text-left active:scale-[0.98] transition-all"
+                    className="mx-5 mb-2 w-[calc(100%-40px)] rounded-2xl overflow-hidden text-left active:scale-[0.98] transition-all"
                     style={{ background:'linear-gradient(135deg,rgba(61,237,122,0.15),rgba(61,237,122,0.06))', border:'1px solid rgba(61,237,122,0.25)' }}
                   >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="text-3xl">{ev.emoji}</span>
-                        <span className="text-[10px] font-black text-zippi-400 bg-zippi-400/15 px-2 py-0.5 rounded-lg">DESTAQUE</span>
+                    <div className="px-3 py-2.5">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <span className="text-xl leading-none">{ev.emoji}</span>
+                        <span className="text-[9px] font-black text-zippi-400 bg-zippi-400/15 px-1.5 py-0.5 rounded-md">DESTAQUE</span>
                       </div>
-                      <p className={`text-sm font-black ${text} mb-1`}>{ev.title}</p>
-                      <p className={`text-xs ${muted}`}>{ev.local} · {ev.time}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] font-bold text-zippi-400">{ev.price}</span>
-                        <span className="text-[10px] text-zippi-400 font-semibold">Como chegar →</span>
+                      <p className={`text-[13px] font-black leading-tight ${text}`}>{ev.title}</p>
+                      <p className={`text-[11px] ${muted} leading-snug`}>{ev.local} · {ev.time}</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span className="text-[9px] font-bold text-zippi-400">{ev.price}</span>
+                        <span className="text-[9px] text-zippi-400 font-semibold">como chegar →</span>
                       </div>
                     </div>
                   </button>
@@ -1425,9 +1713,9 @@ export default function Home() {
               {/* Category filter */}
               <div className="px-5 mb-3">
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                  {EVENT_CATS.map(cat => (
-                    <button key={cat.id} onClick={() => setEventCat(cat.id)}
-                      className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all ${eventCat === cat.id ? 'bg-zippi-400 text-dark-950' : ''}`}
+                  {(isBentoCity(exploreCity) ? EVENTOS_FILTERS.filter(c => ['todos', 'musica', 'cultura', 'feira', 'gastronomia', 'esporte', 'gratuito'].includes(c.id)) : EVENTOS_FILTERS).map(cat => (
+                    <button key={cat.id} type="button" onClick={() => setEventCat(cat.id)}
+                      className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-xl text-[11px] font-bold transition-all ${eventCat === cat.id ? 'bg-zippi-400 text-dark-950' : ''}`}
                       style={eventCat !== cat.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
                     >
                       <span className="text-[12px]">{cat.emoji}</span>
@@ -1438,15 +1726,19 @@ export default function Home() {
               </div>
 
               {/* Events list */}
-              <div className="px-5 flex flex-col gap-2">
-                {eventsLoading && (
-                  <p className={`text-xs ${muted} text-center py-2`}>carregando eventos…</p>
+              <div className="px-5 flex flex-col gap-1.5">
+                {eventsLoadingToday && (
+                  <p className={`text-xs ${muted} text-center py-2`}>carregando eventos de hoje…</p>
                 )}
-                {eventsFiltered.length === 0 ? (
+                {eventsFiltered.length === 0 && !eventsLoadingToday ? (
                   <div className="py-12 text-center">
                     <p className="text-4xl mb-3">📅</p>
-                    <p className={`font-bold ${text} mb-1`}>Nenhum evento encontrado</p>
-                    <p className={`text-xs ${muted}`}>Tente outra categoria ou cidade.</p>
+                    <p className={`font-bold ${text} mb-1`}>nenhum evento hoje</p>
+                    <p className={`text-xs ${muted}`}>
+                      {eventsSourceToday === 'fallback'
+                        ? 'eventos de exemplo — sympla complementa quando disponível.'
+                        : 'tente outra categoria ou cidade.'}
+                    </p>
                   </div>
                 ) : eventsFiltered.map(ev => (
                   <EventCard
@@ -1477,13 +1769,13 @@ export default function Home() {
 
         {/* ── Dock recuada: busca + falar (sempre visível) ──────── */}
         <div
-          className="flex-shrink-0 px-4 pt-1"
+          className="flex-shrink-0 px-4 pt-0.5"
           style={{
             height: DOCK_BAR_H,
             borderTop: isSheetExpanded ? `1px solid ${GLASS_BORDER}` : 'none',
           }}
         >
-          <div className="flex items-center gap-2.5 h-11">
+          <div className="flex items-center gap-2 h-10">
             <input
               ref={dockInputRef}
               type="text"
@@ -1504,12 +1796,12 @@ export default function Home() {
                 setFocus(false)
                 if (activeTab === 'ir' && sheetState === 'search') animateSheet(SNAP.peek)
               }, 150)}
-              className={`flex-1 h-11 px-4 rounded-2xl text-sm font-medium outline-none ${text}`}
+              className={`flex-1 h-10 px-4 rounded-2xl text-sm font-medium outline-none ${text}`}
               style={glassSecondary}
             />
             <button
               onClick={() => setVoiceMode('chat')}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
               style={glassSecondary}
               aria-label="Chat por voz"
               title="Falar no chat"

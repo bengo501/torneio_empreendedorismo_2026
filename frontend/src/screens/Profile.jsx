@@ -2,19 +2,27 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Bell, Moon, Sun, ChevronRight,
-  LogOut, HelpCircle, Info, Edit3, Shield, User,
+  LogOut, HelpCircle, Info, Edit3, Shield, User, Sparkles,
 } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useUser } from '../context/UserContext.jsx'
-import { computeSocialImpact } from '../data/explore.js'
-import { RIDE_HISTORY, STATS } from '../data/history.js'
+import {
+  ONBOARDING_INTERESTS,
+  BEHAVIOR_TAGS,
+  TRANSPORT_APP_OPTIONS,
+  allSelectedInterestChips,
+} from '../data/userInterests.js'
+import InterestTagPicker, { SimpleChipPicker, TransportAppPicker } from '../components/InterestTagPicker.jsx'
 
 export default function Profile() {
-  const navigate             = useNavigate()
-  const { dark, toggle }     = useTheme()
-  const user                 = useUser()
-  const [notif, setNotif]    = useState(true)
-  const impact               = computeSocialImpact(RIDE_HISTORY)
+  const navigate = useNavigate()
+  const { dark, toggle } = useTheme()
+  const user = useUser()
+  const [notif, setNotif] = useState(true)
+  const [editingInterests, setEditingInterests] = useState(false)
+  const [draftInterests, setDraftInterests] = useState(user.interests || {})
+  const [draftBehavior, setDraftBehavior] = useState(user.behaviorTags || [])
+  const [draftTransport, setDraftTransport] = useState(user.transportApps || [])
 
   const bg    = dark ? 'bg-dark-950'     : 'bg-gray-50'
   const bg2   = dark ? 'bg-dark-900'     : 'bg-white'
@@ -26,10 +34,28 @@ export default function Profile() {
   const dim   = dark ? 'text-dark-600'   : 'text-gray-400'
   const sub   = dark ? 'text-dark-300'   : 'text-gray-600'
 
+  const interestChips = allSelectedInterestChips(user.interests)
+
+  function startEditInterests() {
+    setDraftInterests(user.interests || {})
+    setDraftBehavior(user.behaviorTags || [])
+    setDraftTransport(user.transportApps || [])
+    setEditingInterests(true)
+  }
+
+  function saveInterests() {
+    user.setInterests(draftInterests)
+    user.setBehaviorTags(draftBehavior)
+    user.setTransportApps(draftTransport)
+    setEditingInterests(false)
+  }
+
+  function cancelEdit() {
+    setEditingInterests(false)
+  }
+
   return (
     <div className={`flex flex-col min-h-dvh ${bg}`}>
-
-      {/* ── HEADER ─────────────────────────────────────────────── */}
       <div className={`px-5 pt-14 pb-5 ${bg}`}>
         <div className="flex items-center gap-3 mb-8">
           <button
@@ -38,19 +64,16 @@ export default function Profile() {
           >
             <ArrowLeft size={16} className={sub} />
           </button>
-          <h1 className={`text-xl font-black ${text}`}>Meu Perfil</h1>
+          <h1 className={`text-xl font-black ${text}`}>meu perfil</h1>
         </div>
 
-        {/* ── AVATAR + NOME ─────────────────────────────────────── */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-2">
           <div className="relative flex-shrink-0">
-            {/* Avatar gradient */}
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-zippi-400 to-emerald-600 flex items-center justify-center shadow-xl shadow-zippi-900/40">
               <span className="text-2xl font-black text-dark-950 select-none">
                 {user.initials}
               </span>
             </div>
-            {/* Verified badge */}
             <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-zippi-400 flex items-center justify-center shadow-md border-2 border-dark-950">
               <span className="text-[9px] font-black text-dark-950">✓</span>
             </div>
@@ -61,75 +84,154 @@ export default function Profile() {
             <p className={`text-sm ${muted} mt-0.5`}>{user.phone}</p>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               <span className="text-[10px] font-bold text-zippi-400 bg-zippi-900/30 px-2 py-0.5 rounded-full">
-                📍 {user.city}
+                {user.city}
               </span>
-              <span className={`text-[10px] ${dim}`}>· Desde {user.since}</span>
+              <span className={`text-[10px] ${dim}`}>· desde {user.since}</span>
             </div>
           </div>
 
           <button
+            type="button"
+            onClick={startEditInterests}
             className={`w-9 h-9 rounded-xl ${bg3} border ${bdr2} flex items-center justify-center flex-shrink-0`}
-            title="Editar perfil"
+            title="editar interesses"
           >
             <Edit3 size={14} className={muted} />
           </button>
         </div>
-
-        {/* ── IMPACTO CARD ──────────────────────────────────────── */}
-        <div className={`${bg2} border ${bdr} rounded-3xl p-4`}>
-          <div className="flex items-center justify-between mb-3">
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${dim}`}>Seu Impacto</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <ImpactStat icon="🚗" value={String(STATS.totalRides)} label="Corridas" text={text} dim={dim} />
-            <ImpactStat icon="🌿" value={`${impact.totalCo2Saved.toFixed(1)}kg`} label="CO₂ salvo" text={text} dim={dim} green />
-            <ImpactStat icon="💸" value={`R$${STATS.totalSaved.toFixed(0)}`} label="Economizado" text={text} dim={dim} green />
-          </div>
-
-          {/* Green ride progress */}
-          <div className={`pt-3 border-t ${dark ? 'border-dark-700' : 'border-gray-100'}`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className={`text-xs ${muted}`}>
-                <span className="font-bold text-zippi-400">{impact.greenPct}%</span>{' '}
-                das viagens foram ecológicas
-              </p>
-              <button
-                onClick={() => navigate('/history')}
-                className="text-[10px] font-bold text-zippi-400"
-              >
-                Histórico →
-              </button>
-            </div>
-            <div className={`w-full h-1.5 rounded-full ${bg3} overflow-hidden`}>
-              <div
-                className="h-full rounded-full bg-zippi-400 transition-all duration-700"
-                style={{ width: `${impact.greenPct}%` }}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* ── SCROLLABLE BODY ───────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 pb-10">
+        <SectionLabel label="meus interesses" dim={dim} />
+        <div className={`${bg2} border ${bdr} rounded-2xl p-4 mb-5`}>
+          {editingInterests ? (
+            <div className="space-y-5">
+              <InterestTagPicker
+                categories={ONBOARDING_INTERESTS}
+                selected={draftInterests}
+                onChange={setDraftInterests}
+                dark={dark}
+                compact
+              />
+              <div>
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${dim} mb-2`}>
+                  estilo de rolê
+                </p>
+                <SimpleChipPicker
+                  tags={BEHAVIOR_TAGS}
+                  selected={draftBehavior}
+                  onChange={setDraftBehavior}
+                  dark={dark}
+                  accent="emerald"
+                />
+              </div>
+              <div>
+                <p className={`text-[10px] font-bold uppercase tracking-widest ${dim} mb-2`}>
+                  transporte
+                </p>
+                <TransportAppPicker
+                  options={TRANSPORT_APP_OPTIONS}
+                  selected={draftTransport}
+                  onChange={setDraftTransport}
+                  dark={dark}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={saveInterests}
+                  className="flex-1 py-2.5 rounded-xl bg-zippi-400 text-dark-950 text-sm font-bold active:scale-95"
+                >
+                  salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className={`flex-1 py-2.5 rounded-xl border ${bdr2} text-sm font-bold ${text} active:scale-95`}
+                >
+                  cancelar
+                </button>
+              </div>
+            </div>
+          ) : interestChips.length ? (
+            <>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {interestChips.map(tag => (
+                  <span
+                    key={tag}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg bg-zippi-400/15 text-zippi-400 border border-zippi-400/30"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+              {user.behaviorTags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {user.behaviorTags.map(tag => (
+                    <span
+                      key={tag}
+                      className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {user.transportApps?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {user.transportApps.map(id => {
+                    const opt = TRANSPORT_APP_OPTIONS.find(o => o.id === id)
+                    return opt ? (
+                      <span
+                        key={id}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-lg ${bg3} ${muted}`}
+                      >
+                        {opt.emoji} {opt.label}
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={startEditInterests}
+                className="mt-3 text-[11px] font-bold text-zippi-400"
+              >
+                editar interesses →
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-4">
+              <Sparkles size={20} className="text-zippi-400 mx-auto mb-2" />
+              <p className={`text-sm ${muted} mb-3`}>
+                adicione interesses para receber recomendações personalizadas
+              </p>
+              <button
+                type="button"
+                onClick={startEditInterests}
+                className="text-sm font-bold text-zippi-400"
+              >
+                escolher interesses
+              </button>
+            </div>
+          )}
+        </div>
 
-        {/* PREFERÊNCIAS */}
-        <SectionLabel label="Preferências" dim={dim} />
+        <SectionLabel label="preferências" dim={dim} />
         <div className={`${bg2} border ${bdr} rounded-2xl overflow-hidden mb-5`}>
           <ToggleRow
             icon={dark
               ? <Moon size={16} className="text-blue-400" />
               : <Sun size={16} className="text-yellow-500" />
             }
-            label="Modo escuro"
+            label="modo escuro"
             value={dark}
             onToggle={toggle}
             dark={dark} bg3={bg3} bdr={bdr} text={text}
           />
           <ToggleRow
             icon={<Bell size={16} className="text-zippi-400" />}
-            label="Notificações de rota"
+            label="notificações de rota"
             value={notif}
             onToggle={() => setNotif(n => !n)}
             dark={dark} bg3={bg3} bdr={bdr} text={text}
@@ -137,36 +239,35 @@ export default function Profile() {
           />
         </div>
 
-        {/* CONTA */}
-        <SectionLabel label="Conta" dim={dim} />
+        <SectionLabel label="conta" dim={dim} />
         <div className={`${bg2} border ${bdr} rounded-2xl overflow-hidden mb-5`}>
           <MenuRow
             icon={<User size={16} className="text-zippi-400" />}
-            label="Editar informações"
+            label="editar informações"
+            onClick={startEditInterests}
             dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted}
           />
           <MenuRow
             icon={<Shield size={16} className="text-purple-400" />}
-            label="Privacidade e segurança"
+            label="privacidade e segurança"
             dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted}
           />
           <MenuRow
             icon={<HelpCircle size={16} className="text-blue-400" />}
-            label="Central de ajuda"
+            label="central de ajuda"
             dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted}
           />
           <MenuRow
             icon={<Info size={16} className={dim} />}
-            label="Sobre o Zippi"
-            badge="v1.0 MVP"
+            label="sobre o turio"
+            badge="v1.0 mvp"
             dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted}
             last
           />
         </div>
 
-        {/* SIGN OUT */}
         <button
-          onClick={() => navigate('/login')}
+          onClick={() => { user.logout(); navigate('/login') }}
           className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl border ${
             dark
               ? 'border-red-900/40 bg-red-950/20 active:bg-red-900/30'
@@ -174,28 +275,16 @@ export default function Profile() {
           } transition-colors active:scale-95 transition-transform`}
         >
           <LogOut size={15} className="text-red-400" />
-          <span className="text-sm font-bold text-red-400">Sair da conta</span>
+          <span className="text-sm font-bold text-red-400">sair da conta</span>
         </button>
       </div>
     </div>
   )
 }
 
-/* ── Sub-components ──────────────────────────────────────────── */
-
 function SectionLabel({ label, dim }) {
   return (
     <p className={`text-[10px] font-bold uppercase tracking-widest ${dim} mb-2`}>{label}</p>
-  )
-}
-
-function ImpactStat({ icon, value, label, green, text, dim }) {
-  return (
-    <div className="text-center">
-      <p className="text-xl mb-0.5">{icon}</p>
-      <p className={`text-sm font-black leading-tight ${green ? 'text-zippi-400' : text}`}>{value}</p>
-      <p className={`text-[10px] ${dim} mt-0.5`}>{label}</p>
-    </div>
   )
 }
 
@@ -207,6 +296,7 @@ function ToggleRow({ icon, label, value, onToggle, dark, bg3, bdr, text, last })
       </div>
       <span className={`flex-1 text-sm font-medium ${text}`}>{label}</span>
       <button
+        type="button"
         onClick={onToggle}
         className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
           value ? 'bg-zippi-400' : dark ? 'bg-dark-700' : 'bg-gray-300'
@@ -222,9 +312,11 @@ function ToggleRow({ icon, label, value, onToggle, dark, bg3, bdr, text, last })
   )
 }
 
-function MenuRow({ icon, label, badge, dark, bg3, bdr, text, muted, last }) {
+function MenuRow({ icon, label, badge, onClick, dark, bg3, bdr, text, muted, last }) {
   return (
     <button
+      type="button"
+      onClick={onClick}
       className={`w-full flex items-center gap-3 px-4 py-3.5 text-left ${
         !last ? `border-b ${bdr}` : ''
       } ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'} transition-colors`}

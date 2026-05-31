@@ -1,5 +1,7 @@
 import { SYMPLA_BASE, SYMPLA_TOKEN } from '../config.js'
 
+const TZ = 'America/Sao_Paulo'
+
 const CAT_MAP = {
   musica: 'musica', music: 'musica', show: 'musica', festa: 'musica',
   cultura: 'cultura', teatro: 'cultura', cinema: 'cultura', arte: 'cultura',
@@ -13,6 +15,47 @@ const CAT_EMOJI = {
   esporte: '🏃', educacao: '🎓', todos: '🗓️',
 }
 
+function dateKeyInTz(d) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+function addDaysToKey(key, days) {
+  const d = new Date(`${key}T12:00:00`)
+  d.setDate(d.getDate() + days)
+  return dateKeyInTz(d)
+}
+
+function parseEventDate(str) {
+  if (!str) return null
+  const normalized = str.includes('T') ? str : str.replace(' ', 'T')
+  const d = new Date(normalized)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function isEventTodayRaw(ev) {
+  const start = parseEventDate(ev.start_date || ev.startDate)
+  const end = parseEventDate(ev.end_date || ev.endDate) || start
+  if (!start) return false
+  const today = dateKeyInTz(new Date())
+  const sk = dateKeyInTz(start)
+  const ek = dateKeyInTz(end)
+  return today >= sk && today <= ek
+}
+
+function isEventUpcomingRaw(ev, days = 14) {
+  const start = parseEventDate(ev.start_date || ev.startDate)
+  if (!start) return false
+  const sk = dateKeyInTz(start)
+  const today = dateKeyInTz(new Date())
+  const max = addDaysToKey(today, days)
+  return sk >= today && sk <= max
+}
+
 function mapCategory(raw) {
   const key = (raw || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   for (const [pattern, cat] of Object.entries(CAT_MAP)) {
@@ -24,9 +67,13 @@ function mapCategory(raw) {
 function formatEventDate(start) {
   if (!start) return 'em breve'
   try {
-    const d = new Date(start.replace(' ', 'T'))
-    const day = d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' })
-    const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const d = parseEventDate(start)
+    if (!d) return start
+    const day = d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
+    const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+    const today = dateKeyInTz(new Date())
+    const isToday = dateKeyInTz(d) === today
+    if (isToday) return `hoje · ${time}`
     return `${day} · ${time}`
   } catch {
     return start
@@ -61,6 +108,8 @@ function normalizeSymplaEvent(raw, index) {
     highlight: price === 'Grátis',
     source: 'sympla',
     url: raw.url || raw.event_url || null,
+    startAt: raw.start_date || raw.startDate || null,
+    endAt: raw.end_date || raw.endDate || null,
   }
 }
 
@@ -83,14 +132,14 @@ export async function symplaUpstream(path, params = {}) {
 }
 
 async function fetchPartnersByCity(city, state) {
-  const data = await symplaUpstream('/partners/events', { city, state, page: '1', limit: '24' })
+  const data = await symplaUpstream('/partners/events', { city, state, page: '1', limit: '40' })
   const list = data?.data ?? data?.events ?? data
   return Array.isArray(list) ? list : []
 }
 
 async function fetchPublicFiltered(city, state) {
   const all = []
-  for (let page = 1; page <= 3; page++) {
+  for (let page = 1; page <= 4; page++) {
     const data = await symplaUpstream('/public/v1.5.1/events', {
       page: String(page),
       page_size: '50',
@@ -121,10 +170,10 @@ async function nominatimSearch(query) {
   }
 }
 
-async function geocodeMissing(events, cityName) {
+async function geocodeMissing(events, cityName, max = 8) {
   const out = [...events]
   let geocoded = 0
-  for (let i = 0; i < out.length && geocoded < 5; i++) {
+  for (let i = 0; i < out.length && geocoded < max; i++) {
     if (out[i].lat != null && out[i].lon != null) continue
     const coords = await nominatimSearch(`${out[i].local}, ${cityName}, Brasil`)
     if (coords) {
@@ -135,24 +184,42 @@ async function geocodeMissing(events, cityName) {
   return out
 }
 
-export async function fetchSymplaEvents(cityName, stateCode = 'RS') {
+function filterRawByRange(raw, range) {
+  if (range === 'today') return raw.filter(isEventTodayRaw)
+  if (range === 'upcoming') return raw.filter(ev => isEventUpcomingRaw(ev, 14))
+  return raw
+}
+
+/**
+ * @param {'today'|'upcoming'|'all'} range
+ */
+export async function fetchSymplaEvents(cityName, stateCode = 'RS', range = 'all') {
   if (!SYMPLA_TOKEN) {
-    return { events: [], source: 'fallback', symplaConfigured: false }
+    return { events: [], source: 'fallback', symplaConfigured: false, range }
   }
 
   let raw = await fetchPartnersByCity(cityName, stateCode)
   if (!raw.length) raw = await fetchPublicFiltered(cityName, stateCode)
 
-  let events = raw
-    .filter(ev => !ev.cancelled && ev.published !== 0)
-    .map((ev, i) => normalizeSymplaEvent(ev, i))
+  raw = raw.filter(ev => !ev.cancelled && ev.published !== 0)
+  raw = filterRawByRange(raw, range)
 
-  events = await geocodeMissing(events, cityName)
+  let events = raw.map((ev, i) => normalizeSymplaEvent(ev, i))
+  events = await geocodeMissing(events, cityName, range === 'upcoming' ? 12 : 8)
+
+  events = events
+    .filter(e => e.lat != null && e.lon != null)
+    .sort((a, b) => {
+      const da = parseEventDate(a.startAt)?.getTime() ?? 0
+      const db = parseEventDate(b.startAt)?.getTime() ?? 0
+      return da - db
+    })
 
   return {
-    events: events.filter(e => e.lat != null && e.lon != null),
+    events,
     source: events.length ? 'sympla' : 'fallback',
     symplaConfigured: true,
+    range,
   }
 }
 

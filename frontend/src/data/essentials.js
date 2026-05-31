@@ -49,4 +49,15 @@ export const ESSENTIAL_SERVICES = [
     distanceKm: 1.1,
     color: '#3B82F6',
   },
+  {
+    id: 'fastfood',
+    label: 'Fast Food',
+    query: 'fast food lanchonete',
+    osmTags: [
+      { key: 'amenity', value: 'fast_food' },
+    ],
+    nearby: 8,
+    distanceKm: 0.5,
+    color: '#F97316',
+  },
 ]

@@ -136,7 +136,7 @@ export default function VoiceAssistant({ onResult, onClose, mode = 'chat' }) {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className={`text-xl font-black ${text}`}>
-                {isGuide ? 'Guia IA Zippi' : 'Chat por voz'}
+                {isGuide ? 'Guia IA Turio' : 'Chat por voz'}
               </h3>
               <p className={`text-sm ${muted} mt-0.5`}>
                 {isGuide

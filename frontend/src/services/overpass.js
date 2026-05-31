@@ -1,5 +1,8 @@
 const ENDPOINT = 'https://overpass-api.de/api/interpreter'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
+const OSM_UA = 'TurioApp/1.0 (porto alegre urban copilot; contact: dev@turio.app)'
+
+import { parseNatureElements } from './osmGeometry.js'
 
 function cacheKey(kind, bbox) {
   const k = bbox.map(n => n.toFixed(3)).join(',')
@@ -34,7 +37,10 @@ async function runQuery(query) {
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': OSM_UA,
+        },
         body: `data=${encodeURIComponent(query)}`,
       })
       if (!res.ok) throw new Error(`overpass ${res.status}`)
@@ -87,34 +93,24 @@ export async function fetchNatureFeatures(bbox) {
   if (cached) return cached
 
   const query = `
-[out:json][timeout:25];
+[out:json][timeout:45];
 (
   way["leisure"="park"](${south},${west},${north},${east});
   way["leisure"="garden"](${south},${west},${north},${east});
   relation["leisure"="park"](${south},${west},${north},${east});
   way["natural"="water"](${south},${west},${north},${east});
-  way["waterway"="riverbank"](${south},${west},${north},${east});
+  relation["natural"="water"](${south},${west},${north},${east});
+  way["place"="square"](${south},${west},${north},${east});
 );
 out geom;
 `
   const data = await runQuery(query)
-  const features = []
-
-  for (const el of data.elements || []) {
-    const coords = wayToCoords(el)
-    if (!coords?.length) continue
-    const tags = el.tags || {}
-    let kind = 'other'
-    if (tags.leisure === 'park' || tags.leisure === 'garden') kind = 'park'
-    else if (tags.natural === 'water' || tags.waterway === 'riverbank') kind = 'water'
-
-    features.push({
-      id: `${el.type}-${el.id}`,
-      kind,
-      name: tags.name ?? null,
-      path: coords,
-    })
-  }
+  const features = parseNatureElements(data.elements).map(f => ({
+    id: f.id,
+    kind: f.kind,
+    name: f.name,
+    path: f.path,
+  }))
 
   writeCache(key, features)
   return features

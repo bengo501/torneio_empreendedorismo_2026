@@ -1,0 +1,7 @@
+export default [
+  { name: 'Museu de Ciências e Tecnologia da PUCRS', category: 'Lugares / Educação / Ciência', address: 'Av. Ipiranga, 6681 - Partenon, Porto Alegre, RS', priceRange: 'R$–R$$', target: 'crianças, estudantes, famílias, ciência', preview: 'Museu interativo de ciência e tecnologia.' },
+  { name: 'Planetário da UFRGS', category: 'Lugares / Educação / Infantil', address: 'Av. Ipiranga, 2000 - Santana, Porto Alegre, RS', priceRange: 'R$', target: 'crianças, estudantes, astronomia', preview: 'Sessões educativas e experiências de astronomia.' },
+  { name: 'Biblioteca Pública Josué Guimarães', category: 'Lugares / Educação / Cultura', address: 'Av. Érico Veríssimo, 307 - Menino Deus, Porto Alegre, RS', priceRange: 'Grátis', target: 'estudantes, leitura, cultura', preview: 'Biblioteca pública com programação cultural.' },
+  { name: 'Biblioteca Pública do Estado do RS', category: 'Lugares / Educação / Cultura', address: 'Rua Riachuelo, 1190 - Centro Histórico, Porto Alegre, RS', priceRange: 'Grátis', target: 'estudantes, pesquisa, arquitetura histórica', preview: 'Biblioteca histórica no Centro de Porto Alegre.' },
+  { name: 'Instituto Ling — Educação', category: 'Lugares / Educação / Cultura', address: 'Rua João Caetano, 440 - Três Figueiras, Porto Alegre, RS', priceRange: 'Grátis / R$–R$$', target: 'cursos, palestras, arte, cinema', preview: 'Espaço com cursos, exposições e programação cultural.' },
+]

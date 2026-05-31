@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
+import { useUser } from '../context/UserContext.jsx'
 
 export default function Login() {
   const navigate         = useNavigate()
+  const { onboardingCompleted, patchUser } = useUser()
   const [step, setStep]  = useState('phone')   // 'phone' | 'otp'
   const [phone, setPhone] = useState('')
   const [otp, setOtp]    = useState(['', '', '', '', '', ''])
@@ -29,6 +31,20 @@ export default function Login() {
     setTimeout(() => { setLoading(false); setStep('otp') }, 800)
   }
 
+  function finishAuth() {
+    const formatted = `+55 ${phone}`
+    patchUser({ phone: formatted })
+    setLoading(true)
+    setTimeout(() => {
+      setLoading(false)
+      if (onboardingCompleted) {
+        navigate('/home', { replace: true })
+      } else {
+        navigate('/onboarding', { replace: true, state: { phone: formatted } })
+      }
+    }, 600)
+  }
+
   function handleOtpChange(val, idx) {
     const digit = val.replace(/\D/g, '').slice(-1)
     const next  = [...otp]
@@ -37,10 +53,7 @@ export default function Login() {
     if (digit && idx < 5) {
       otpRefs.current[idx + 1]?.focus()
     }
-    if (next.every(d => d !== '')) {
-      setLoading(true)
-      setTimeout(() => navigate('/home'), 700)
-    }
+    if (next.every(d => d !== '')) finishAuth()
   }
 
   function handleOtpKeyDown(e, idx) {
@@ -56,10 +69,7 @@ export default function Login() {
     for (let i = 0; i < 6; i++) next[i] = pasted[i] ?? ''
     setOtp(next)
     otpRefs.current[Math.min(pasted.length, 5)]?.focus()
-    if (next.every(d => d !== '')) {
-      setLoading(true)
-      setTimeout(() => navigate('/home'), 700)
-    }
+    if (next.every(d => d !== '')) finishAuth()
   }
 
   const phoneValid = phone.replace(/\D/g, '').length >= 10
@@ -83,7 +93,7 @@ export default function Login() {
             </div>
           </div>
           <div className="text-center">
-            <h1 className="text-4xl font-black text-white tracking-tight">Zippi</h1>
+            <h1 className="text-4xl font-black text-white tracking-tight">Turio</h1>
             <p className="text-xs text-zippi-400/90 font-semibold mt-0.5 tracking-wide">
               Acesso urbano inteligente
             </p>
@@ -96,9 +106,11 @@ export default function Login() {
 
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          <StepDot active={step === 'phone'} done={step === 'otp'} label="Telefone" />
-          <div className={`flex-1 max-w-[48px] h-px transition-colors ${step === 'otp' ? 'bg-zippi-400' : 'bg-dark-800'}`} />
-          <StepDot active={step === 'otp'} done={false} label="Código" />
+          <StepDot active={step === 'phone'} done={step !== 'phone'} label="telefone" />
+          <div className={`flex-1 max-w-[32px] h-px transition-colors ${step !== 'phone' ? 'bg-zippi-400' : 'bg-dark-800'}`} />
+          <StepDot active={step === 'otp'} done={false} label="código" />
+          <div className="flex-1 max-w-[32px] h-px bg-dark-800" />
+          <StepDot active={false} done={false} label="perfil" />
         </div>
 
         {/* ── PHONE STEP ───────────────────────────────────── */}
@@ -108,7 +120,7 @@ export default function Login() {
               Acesso urbano para todos
             </h2>
             <p className="text-dark-400 text-sm mb-1 leading-relaxed">
-              Zippi conecta pessoas à cidade com IA, multimodalidade e impacto social.
+              Turio conecta pessoas à cidade com IA, multimodalidade e impacto social.
             </p>
             <p className="text-dark-600 text-xs mb-6">
               Entre com seu celular para começar
@@ -155,16 +167,19 @@ export default function Login() {
               <span className="text-zippi-400">Termos de Uso</span>
               {' '}e{' '}
               <span className="text-zippi-400">Política de Privacidade</span>
-              {' '}do Zippi.
+              {' '}do Turio.
             </p>
 
             <div className="flex-1" />
 
             <button
-              onClick={() => navigate('/home')}
+              onClick={() => {
+                patchUser({ onboardingCompleted: true })
+                navigate('/home')
+              }}
               className="mt-4 w-full py-3 text-sm text-dark-500 hover:text-dark-400 transition-colors font-medium"
             >
-              Explorar sem conta — modo demo
+              explorar sem conta — modo demo
             </button>
           </div>
         )}
@@ -211,7 +226,7 @@ export default function Login() {
 
             {/* Verify button */}
             <button
-              onClick={() => { setLoading(true); setTimeout(() => navigate('/home'), 600) }}
+              onClick={finishAuth}
               disabled={otp.some(d => !d) || loading}
               className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${
                 otp.every(d => d)

@@ -11,7 +11,7 @@ export function getCurrentPosition(highAccuracy = true) {
     navigator.geolocation.getCurrentPosition(
       pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
       err => reject(err),
-      { enableHighAccuracy: highAccuracy, timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 14000 : 10000, maximumAge: 0 }
     )
   })
 }

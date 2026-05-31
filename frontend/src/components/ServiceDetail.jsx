@@ -70,7 +70,7 @@ export default function ServiceDetail({ service, origin, dest, onClose }) {
           {/* Score bar */}
           <div className={`${bg2} rounded-2xl p-4 mb-4`}>
             <div className="flex justify-between items-center mb-3">
-              <span className={`text-xs ${muted} font-bold uppercase tracking-widest`}>Score Zippi</span>
+              <span className={`text-xs ${muted} font-bold uppercase tracking-widest`}>Score Turio</span>
               <span className="text-2xl font-black text-zippi-400">
                 {(service.score * 10).toFixed(0)}
                 <span className={`text-sm ${dim} font-medium`}>/100</span>

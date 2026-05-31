@@ -7,7 +7,8 @@ router.get('/events', async (req, res) => {
   try {
     const city = req.query.city || 'Porto Alegre'
     const state = req.query.state || 'RS'
-    const result = await fetchSymplaEvents(city, state)
+    const range = req.query.range || 'all'
+    const result = await fetchSymplaEvents(city, state, range)
     res.json(result)
   } catch {
     res.status(500).json({ events: [], source: 'fallback', symplaConfigured: false })
