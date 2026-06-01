@@ -37,6 +37,9 @@ export const POA_ESSENTIALS = POA_PLACES.filter(p => p.tab === 'essenciais' && !
 
 export const POA_LUGARES = POA_PLACES.filter(p => p.tab === 'lugares')
 
+export { POA_NEIGHBORHOODS, resolveNeighborhood, getNeighborhoodById, filterPlacesByNeighborhood } from './neighborhoods.js'
+export { buildNeighborhoodCatalog, POA_FEATURED_NEIGHBORHOOD_STATS } from './neighborhoodAnalysis.js'
+
 /** converte mock de evento para formato da lista (events.js / sympla) */
 export function poaMockToEventRow(place) {
   const cat = eventCatFromPlace(place)

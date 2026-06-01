@@ -3,8 +3,8 @@
  * usada no onboarding e no perfil
  */
 
-function g(id, label, tags) {
-  return { id, label, tags }
+function g(id, label, tags, shortLabel) {
+  return { id, label, shortLabel: shortLabel || label, tags }
 }
 
 export const INTEREST_CATEGORIES = [
@@ -12,12 +12,16 @@ export const INTEREST_CATEGORIES = [
     id: 'musica',
     label: 'música',
     groups: [
-      g('geral', 'experiências musicais', ['música ao vivo', 'shows', 'festivais', 'baladas', 'bares com música', 'música gratuita', 'música independente', 'música local']),
-      g('rock', 'rock e alternativo', ['rock', 'indie', 'punk', 'metal', 'hardcore', 'grunge', 'alternativo']),
-      g('brasil', 'música brasileira', ['mpb', 'pagode', 'samba', 'bossa nova', 'chorinho', 'forró', 'sertanejo']),
-      g('urbano', 'urbano e eletrônico', ['funk', 'rap', 'trap', 'hip hop', 'eletrônica', 'techno', 'house', 'drum and bass', 'dj set', 'rave']),
-      g('jazz_blues', 'jazz, blues e clássico', ['jazz', 'blues', 'música clássica', 'orquestra', 'acústico']),
-      g('pop', 'pop e variedades', ['pop', 'reggae', 'karaokê', 'lo-fi', 'música experimental']),
+      g('geral', 'experiências musicais', ['música ao vivo', 'shows', 'festivais', 'baladas', 'bares com música', 'música gratuita', 'música independente', 'música local'], 'shows e festivais'),
+      g('rock', 'rock e alternativo', ['rock', 'indie', 'punk', 'metal', 'hardcore', 'grunge', 'alternativo'], 'pop/rock'),
+      g('sertanejo', 'sertanejo', ['sertanejo', 'forró'], 'sertanejo'),
+      g('brasil', 'música brasileira', ['mpb', 'pagode', 'samba', 'bossa nova', 'chorinho'], 'mpb'),
+      g('axe_samba', 'axé, samba e pagode', ['pagode', 'samba'], 'axé/samba e pagode'),
+      g('urbano', 'urbano e eletrônico', ['funk', 'rap', 'trap', 'hip hop', 'eletrônica', 'techno', 'house', 'drum and bass', 'dj set', 'rave'], 'funk'),
+      g('rap', 'rap e hip-hop', ['rap', 'trap', 'hip hop'], 'rap e hip-hop'),
+      g('kpop', 'k-pop e pop', ['pop', 'k-pop'], 'k-pop'),
+      g('jazz_blues', 'jazz, blues e clássico', ['jazz', 'blues', 'música clássica', 'orquestra', 'acústico'], 'jazz'),
+      g('eletronica', 'eletrônica', ['eletrônica', 'techno', 'house', 'drum and bass', 'dj set', 'rave'], 'eletrônica'),
     ],
   },
   {

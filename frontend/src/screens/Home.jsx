@@ -10,10 +10,19 @@ import ZippiMap           from '../components/ZippiMap.jsx'
 import NotificationsDock  from '../components/NotificationsDock.jsx'
 import AlertsDock         from '../components/AlertsDock.jsx'
 import CommunityModal     from '../components/CommunityModal.jsx'
+import SuggestPlaceModal  from '../components/SuggestPlaceModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
-import { getCurrentPosition, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
+import { getCurrentPosition, watchPosition, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
+import {
+  filterNearbyExplorePlaces,
+  countNearbyExplorePlaces,
+  formatDistanceKm,
+  EXPLORE_RADIUS_KM,
+  kmBetween as kmBetweenPlaces,
+} from '../services/nearbyPlaces.js'
+import { POA_NEIGHBORHOODS, filterPlacesByNeighborhood } from '../data/poa/neighborhoods.js'
 import { getWeather, isSevereWeather } from '../services/weather.js'
 import { getReports }  from '../services/community.js'
 import { getRankedServices, getMultiVehicleCombos } from '../data/services.js'
@@ -232,6 +241,7 @@ export default function Home() {
   /* ── Community ─────────────────────────────────────────────── */
   const [reports,         setReports]         = useState([])
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showSuggestPlace, setShowSuggestPlace] = useState(false)
   const [reportCoords,    setReportCoords]    = useState(null)
   const [pinCreationMode, setPinCreationMode] = useState(false)
 
@@ -247,6 +257,7 @@ export default function Home() {
 
   /* ── Explore ───────────────────────────────────────────────── */
   const [exploreCategory, setExploreCategory] = useState('todos')
+  const [exploreNeighborhood, setExploreNeighborhood] = useState(null)
   const [essentialFilter, setEssentialFilter] = useState('farmacias')
   const [exploreSection, setExploreSection] = useState('lugares') // 'lugares' | 'eventos'
   const [exploreCity,     setExploreCity]     = useState('poa')
@@ -329,6 +340,19 @@ export default function Home() {
       pendingCenter.current = false
     }
   }, [origin])
+
+  /* ── GPS contínuo (explorar · raio 3 km em poa) ─────────────── */
+  useEffect(() => {
+    if (isBentoCity(exploreCity)) return undefined
+    const stop = watchPosition(pos => {
+      setOrigin(prev => {
+        if (!prev?.lat) return { lat: pos.lat, lon: pos.lon, label: prev?.label ?? originLabel }
+        if (kmBetweenPlaces(prev, pos) < 0.03) return prev
+        return { ...prev, lat: pos.lat, lon: pos.lon }
+      })
+    })
+    return stop
+  }, [exploreCity])
 
   /* ── GPS (Firefox-safe two-pass) ───────────────────────────── */
   async function detectGPS() {
@@ -796,16 +820,38 @@ export default function Home() {
     )
   }, [exploreCity, poaData])
 
+  const nearbyExploreAll = useMemo(() => {
+    if (isBentoCity(exploreCity) || !origin?.lat) return []
+    return filterNearbyExplorePlaces(poaData, origin, EXPLORE_RADIUS_KM, 'todos')
+  }, [exploreCity, origin, poaData])
+
+  const nearbyExploreCount = useMemo(
+    () => (origin?.lat ? countNearbyExplorePlaces(poaData, origin, EXPLORE_RADIUS_KM) : 0),
+    [origin, poaData],
+  )
+
   const poaListForTab = useMemo(() => {
     if (isBentoCity(exploreCity)) return []
     if (activeTab === 'essenciais') {
       return sortByLocalFirst(filterPoaEssentials(essentialFilter, poaData))
     }
     if (activeTab === 'explorar' && exploreSection === 'lugares') {
-      return sortByLocalFirst(filterPoaLugares(exploreCategory, poaData))
+      const list = origin?.lat
+        ? filterNearbyExplorePlaces(poaData, origin, EXPLORE_RADIUS_KM, exploreCategory)
+        : sortByLocalFirst(filterPoaLugares(exploreCategory, poaData))
+      return filterPlacesByNeighborhood(list, exploreNeighborhood)
     }
     return []
-  }, [exploreCity, activeTab, essentialFilter, exploreCategory, exploreSection, poaData])
+  }, [exploreCity, activeTab, essentialFilter, exploreCategory, exploreSection, exploreNeighborhood, poaData, origin])
+
+  const poaExploreMapPins = useMemo(() => {
+    if (isBentoCity(exploreCity)) return []
+    if (origin?.lat && nearbyExploreAll.length) return nearbyExploreAll.map(placeToMapPin)
+    if (activeTab === 'explorar' && exploreSection === 'lugares') {
+      return sortByLocalFirst(filterPoaLugares(exploreCategory, poaData)).map(placeToMapPin)
+    }
+    return []
+  }, [exploreCity, origin, nearbyExploreAll, activeTab, exploreSection, exploreCategory, poaData])
 
   const alwaysVisiblePins = useMemo(() => {
     const events = activeTab === 'hoje'
@@ -814,7 +860,7 @@ export default function Home() {
         ? upcomingFiltered
         : []
 
-    const poaPins = poaListForTab.map(placeToMapPin)
+    const poaPins = poaExploreMapPins.length ? poaExploreMapPins : poaListForTab.map(placeToMapPin)
 
     if (!isBentoCity(exploreCity) && poaPins.length) {
       const eventPins = events
@@ -862,7 +908,7 @@ export default function Home() {
         event: e,
       }))
     return [...explorePins, ...eventPins]
-  }, [exploreCity, cityEventsToday, cityEventsUpcoming, activeTab, exploreSection, poaListForTab, eventsFiltered, upcomingFiltered])
+  }, [exploreCity, cityEventsToday, cityEventsUpcoming, activeTab, exploreSection, poaListForTab, poaExploreMapPins, eventsFiltered, upcomingFiltered])
 
   const notificationItems = useMemo(() => {
     const items = []
@@ -1503,7 +1549,51 @@ export default function Home() {
                 <p className={`text-[10px] font-bold uppercase tracking-widest ${muted}`}>
                   {isBentoCity(exploreCity) ? 'bento gonçalves · vale dos vinhedos' : 'porto alegre · copiloto urbano'}
                 </p>
+                {!isBentoCity(exploreCity) && origin?.lat && (
+                  <p className={`text-[11px] ${muted} mt-1`}>
+                    {nearbyExploreCount} lugares em {EXPLORE_RADIUS_KM} km · atualiza ao se mover
+                  </p>
+                )}
+                {!isBentoCity(exploreCity) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestPlace(true)}
+                    className={`text-[11px] font-bold text-zippi-400 mt-1.5 active:opacity-70`}
+                  >
+                    sugerir lugar · ajudar a manter o mapa
+                  </button>
+                )}
               </div>
+
+              {!isBentoCity(exploreCity) && (
+                <div className="px-5 mb-2">
+                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    <button
+                      type="button"
+                      onClick={() => setExploreNeighborhood(null)}
+                      className={`flex-shrink-0 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                        !exploreNeighborhood ? 'bg-zippi-400 text-dark-950' : ''
+                      }`}
+                      style={exploreNeighborhood ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                    >
+                      todos os bairros
+                    </button>
+                    {POA_NEIGHBORHOODS.map(nb => (
+                      <button
+                        key={nb.id}
+                        type="button"
+                        onClick={() => setExploreNeighborhood(exploreNeighborhood === nb.id ? null : nb.id)}
+                        className={`flex-shrink-0 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                          exploreNeighborhood === nb.id ? 'bg-zippi-400 text-dark-950' : ''
+                        }`}
+                        style={exploreNeighborhood !== nb.id ? { ...cardStyle, color: dark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)' } : {}}
+                      >
+                        {nb.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="px-5 flex flex-col gap-1.5">
                 {(isBentoCity(exploreCity)
@@ -1541,11 +1631,25 @@ export default function Home() {
                         {place.isLocalBusiness && (
                           <p className="text-[9px] font-bold text-emerald-400 leading-snug">economia local</p>
                         )}
+                        {place.neighborhoodLabel && (
+                          <p className={`text-[9px] ${muted} leading-snug`}>{place.neighborhoodLabel}</p>
+                        )}
                       </div>
-                      <ChevronRight size={14} className={dim} />
+                      {place.distanceKm != null ? (
+                        <span className="text-[10px] font-bold text-zippi-400 flex-shrink-0">
+                          {formatDistanceKm(place.distanceKm)}
+                        </span>
+                      ) : (
+                        <ChevronRight size={14} className={dim} />
+                      )}
                     </button>
                   )
                 })}
+                {!isBentoCity(exploreCity) && origin?.lat && poaListForTab.length === 0 && (
+                  <p className={`text-xs ${muted} py-4 text-center`}>
+                    nenhum local nesta categoria em {EXPLORE_RADIUS_KM} km. amplie o filtro ou caminhe pela cidade.
+                  </p>
+                )}
               </div>
                 </>
               )}
@@ -1854,6 +1958,13 @@ export default function Home() {
           lat={reportCoords?.lat} lon={reportCoords?.lon}
           onClose={() => { setShowReportModal(false); setPinCreationMode(false) }}
           onAdded={() => setReports(getReports())}
+        />
+      )}
+      {showSuggestPlace && (
+        <SuggestPlaceModal
+          lat={origin?.lat ?? reportCoords?.lat}
+          lon={origin?.lon ?? reportCoords?.lon}
+          onClose={() => setShowSuggestPlace(false)}
         />
       )}
       {voiceMode && (

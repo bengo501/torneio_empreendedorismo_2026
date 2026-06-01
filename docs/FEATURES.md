@@ -38,10 +38,13 @@ descrição detalhada de cada funcionalidade do zippi.
 - seletor de cidade: porto alegre | bento gonçalves
 - ao trocar cidade: mapa voa até a cidade selecionada
 - filtros por categoria: cultura, parques, gastronomia, etc.
+- filtros por bairro (11 bairros poa: centro, rio branco, partenon, bom fim, …)
+- lugares em raio de 3 km com gps, lista atualiza ao se mover
 - lista + pins no mapa
 - eventos gratuitos e pagos identificados
+- **sugerir lugar** — contribuição da comunidade (mvp local; ver [CONTRIBUICAO_USUARIOS.md](./CONTRIBUICAO_USUARIOS.md))
 
-**arquivos:** `Home.jsx`, `explore.js`
+**arquivos:** `Home.jsx`, `explore.js`, `nearbyPlaces.js`, `neighborhoods.js`, `SuggestPlaceModal.jsx`
 
 ---
 

@@ -1,4 +1,5 @@
 import { resolveCoordsFromAddress } from './coords.js'
+import { resolveNeighborhood } from './neighborhoods.js'
 
 const CATEGORY_MAP = [
   [/essenciais\s*\/\s*farm[aá]cia/i, { tab: 'essenciais', pinType: 'farmacia', filter: 'farmacias', isEssential: true }],
@@ -65,6 +66,8 @@ export function normalizePlace(raw, idx) {
     `${raw.category} ${raw.preview} ${raw.brand || ''}`,
   )
 
+  const nb = resolveNeighborhood(raw.address || '', coords.lat, coords.lng)
+
   return {
     id: raw.id || slugId(raw.name, idx),
     name: raw.name,
@@ -90,6 +93,8 @@ export function normalizePlace(raw, idx) {
     isEvent: meta.isEvent ?? false,
     timeLabel: raw.timeLabel || null,
     geocodePending: coords.precision === 'pending',
+    neighborhoodId: nb?.id ?? null,
+    neighborhoodLabel: nb?.label ?? null,
   }
 }
 

@@ -20,6 +20,9 @@ de onde o zippi obtém cada tipo de informação exibida ao usuário.
 | eventos hoje | sympla + curadoria local | sympla api (`VITE_SYMPLA_TOKEN`) | `services/sympla.js`, `data/events.js` |
 | transporte | cálculo local + deeplinks | — | `services.js`, `deeplinks.js` |
 | relatos comunidade | localStorage | — | `community.js` |
+| sugestão de lugares (mvp) | localStorage | backend futuro | `placeContributions.js` |
+| ingestão instagram/x/jornais | planejado (backend) | — | [INGESTAO_CONTEUDO_WEB.md](./INGESTAO_CONTEUDO_WEB.md) |
+| sync lugares google/osm | planejado (backend) | — | [ATUALIZACAO_LUGARES.md](./ATUALIZACAO_LUGARES.md) |
 
 ---
 

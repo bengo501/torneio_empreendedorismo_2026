@@ -86,13 +86,13 @@ export default function Onboarding() {
           <>
             <h1 className="text-2xl font-black text-white mb-1">o que você curte na cidade?</h1>
             <p className="text-dark-400 text-sm mb-4">
-              toque na categoria, depois no grupo e escolha tags específicas (mín. 3)
+              toque nas tags com + para expandir; escolha o que combina com você (mín. 3)
             </p>
-            <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1">
+            <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1 rounded-2xl bg-slate-100 p-4">
               <ExpandableInterestPicker
                 selected={interests}
                 onChange={setInterests}
-                dark
+                dark={false}
                 minTags={3}
               />
             </div>

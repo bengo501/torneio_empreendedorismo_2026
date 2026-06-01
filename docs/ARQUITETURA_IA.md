@@ -1,6 +1,8 @@
 # arquitetura de ia — turio
 
-guia completo dos três sistemas de inteligência artificial do turio: coleta e enriquecimento de dados, recomendação contextual e assistente conversacional. baseado no estado atual do mvp (parser regex em `VoiceAssistant.jsx`) e roadmap até produção plena.
+guia completo dos três sistemas de inteligência artificial do turio: coleta e enriquecimento de dados, recomendação contextual e assistente conversacional. baseado no estado atual do mvp (parser regex em `VoiceAssistant.jsx`, stubs em `frontend/src/ai/`) e roadmap até produção plena.
+
+**treinamento por fase geográfica (poa → rs → brasil → mundo):** ver [TREINAMENTO_IA_MODELOS.md](./TREINAMENTO_IA_MODELOS.md).
 
 ---
 

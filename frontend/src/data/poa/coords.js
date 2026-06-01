@@ -19,6 +19,7 @@ const NEIGHBORHOODS = {
   'passo d areia': [-30.0350, -51.1520],
   'santana': [-30.0380, -51.1950],
   'auxiliadora': [-30.0280, -51.1920],
+  'bela vista': [-30.0443, -51.1839],
   'farroupilha': [-30.0355, -51.2070],
   'redencao': [-30.0355, -51.2070],
   'redenção': [-30.0355, -51.2070],

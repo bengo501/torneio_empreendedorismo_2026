@@ -2,6 +2,28 @@
  *  highAccuracy=true  → GPS chip (slower, more precise, may fail on Firefox)
  *  highAccuracy=false → network/IP-based (faster, always works as fallback)
  */
+/**
+ * observa posição em tempo real (explorar · raio 3 km).
+ * @returns {() => void} clearWatch
+ */
+export function watchPosition(onUpdate, opts = {}) {
+  if (!navigator.geolocation) return () => {}
+  const watchId = navigator.geolocation.watchPosition(
+    pos => onUpdate({
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+    }),
+    err => opts.onError?.(err),
+    {
+      enableHighAccuracy: opts.enableHighAccuracy !== false,
+      maximumAge: opts.maximumAge ?? 12000,
+      timeout: opts.timeout ?? 20000,
+    },
+  )
+  return () => navigator.geolocation.clearWatch(watchId)
+}
+
 export function getCurrentPosition(highAccuracy = true) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {

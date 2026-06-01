@@ -19,7 +19,10 @@ lugares próximos sem google: [LUGARES_APIS.md](./LUGARES_APIS.md)
 | sympla | ativo (backend) | eventos via `GET /api/events` |
 | ticketmaster | planejado | shows e eventos pagos |
 | bilhetin | planejado | ingressos locais |
-| google maps places | planejado | pois comerciais |
+| google maps places | planejado | sync pois · ver [ATUALIZACAO_LUGARES.md](./ATUALIZACAO_LUGARES.md) |
+| instagram graph api | planejado | posts parceiros · ver [INGESTAO_CONTEUDO_WEB.md](./INGESTAO_CONTEUDO_WEB.md) |
+| x api v2 | planejado | agenda social · ver [INGESTAO_CONTEUDO_WEB.md](./INGESTAO_CONTEUDO_WEB.md) |
+| rss / scraping blogs | planejado | notícias e eventos · backend |
 | uber api | planejado | preços em tempo real |
 | 99 api | planejado | preços em tempo real |
 | indriver api | planejado | preços em tempo real |

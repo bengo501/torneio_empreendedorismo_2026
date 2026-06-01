@@ -1,11 +1,43 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import {
   INTEREST_CATEGORIES,
   countAllSelected,
   toggleInterestTag,
-  toggleGroupTags,
 } from '../data/interestTree.js'
+
+const BLUE = '#2B7FE6'
+const BLUE_LIGHT = '#5B9FEF'
+
+function titleCase(s) {
+  return s.replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function TagChip({ label, selected, expandable, expanded, onClick, dark }) {
+  const offBg = dark ? 'bg-dark-800' : 'bg-white'
+  const offBorder = dark ? 'border-blue-400/50' : 'border-blue-300'
+  const offText = dark ? 'text-blue-300' : 'text-blue-500'
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all active:scale-[0.97] shadow-sm"
+      style={
+        selected
+          ? { background: BLUE, color: '#fff', border: `2px solid ${BLUE}` }
+          : { background: offBg, color: offText, border: `2px solid ${offBorder}` }
+      }
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      {selected ? (
+        <Check size={16} strokeWidth={2.5} className="flex-shrink-0" />
+      ) : expandable && !expanded ? (
+        <Plus size={16} strokeWidth={2.5} className="flex-shrink-0" style={{ color: BLUE_LIGHT }} />
+      ) : null}
+    </button>
+  )
+}
 
 export default function ExpandableInterestPicker({
   selected = {},
@@ -13,121 +45,128 @@ export default function ExpandableInterestPicker({
   dark = true,
   minTags = 3,
 }) {
-  const [openCats, setOpenCats] = useState({})
-  const [openGroups, setOpenGroups] = useState({})
+  const [expandedCats, setExpandedCats] = useState({})
+  const [expandedGroups, setExpandedGroups] = useState({})
 
-  const muted = dark ? 'text-white/50' : 'text-gray-500'
-  const text = dark ? 'text-white' : 'text-gray-900'
-  const chipOff = dark
-    ? 'bg-dark-800 border-dark-700 text-dark-300'
-    : 'bg-gray-100 border-gray-200 text-gray-600'
-  const chipOn = 'bg-zippi-400/20 border-zippi-400 text-zippi-400'
-
+  const muted = dark ? 'text-white/55' : 'text-gray-500'
   const total = countAllSelected(selected)
 
-  function toggleCat(catId) {
-    setOpenCats(prev => ({ ...prev, [catId]: !prev[catId] }))
+  function isCatActive(catId) {
+    return (selected[catId] || []).length > 0
   }
 
-  function toggleGroup(catId, groupId) {
-    const key = `${catId}:${groupId}`
-    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  function isGroupActive(catId, group) {
+    const sel = selected[catId] || []
+    return group.tags.some(t => sel.includes(t))
+  }
+
+  function isTagActive(catId, tag) {
+    return (selected[catId] || []).includes(tag)
+  }
+
+  function handleCategoryClick(cat) {
+    const willExpand = !expandedCats[cat.id]
+    setExpandedCats(prev => ({ ...prev, [cat.id]: willExpand }))
+  }
+
+  function handleGroupClick(cat, group) {
+    const key = `${cat.id}:${group.id}`
+    const willExpand = !expandedGroups[key]
+    setExpandedGroups(prev => ({ ...prev, [key]: willExpand }))
+  }
+
+  function handleGroupSelect(cat, group) {
+    const sel = selected[cat.id] || []
+    const allOn = group.tags.every(t => sel.includes(t))
+    let next = [...sel]
+    if (allOn) {
+      next = next.filter(t => !group.tags.includes(t))
+    } else {
+      group.tags.forEach(t => { if (!next.includes(t)) next.push(t) })
+    }
+    onChange({ ...selected, [cat.id]: next })
+    const key = `${cat.id}:${group.id}`
+    if (!expandedGroups[key]) {
+      setExpandedGroups(prev => ({ ...prev, [key]: true }))
+    }
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <p className={`text-xs ${muted}`}>
-        {total} {total === 1 ? 'tag selecionada' : 'tags selecionadas'}
-        {minTags > 0 && total < minTags && ` · mínimo ${minTags}`}
+        toque na tag para expandir e escolher ramificações · {total} selecionadas
+        {minTags > 0 && total < minTags && ` (mín. ${minTags})`}
       </p>
 
-      {INTEREST_CATEGORIES.map(cat => {
-        const catOpen = openCats[cat.id]
-        const catCount = (selected[cat.id] || []).length
+      <div className="flex flex-wrap gap-2.5 content-start">
+        {INTEREST_CATEGORIES.map(cat => {
+          const catExpanded = expandedCats[cat.id]
+          const catActive = isCatActive(cat.id)
 
-        return (
-          <div
-            key={cat.id}
-            className={`rounded-2xl border overflow-hidden ${
-              dark ? 'border-dark-700 bg-dark-900/50' : 'border-gray-200 bg-white'
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => toggleCat(cat.id)}
-              className={`w-full flex items-center gap-2 px-3 py-3 text-left ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'}`}
-            >
-              {catOpen
-                ? <ChevronDown size={16} className="text-zippi-400 flex-shrink-0" />
-                : <ChevronRight size={16} className={muted + ' flex-shrink-0'} />}
-              <span className={`flex-1 text-sm font-bold ${text}`}>{cat.label}</span>
-              {catCount > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zippi-400/20 text-zippi-400">
-                  {catCount}
-                </span>
-              )}
-            </button>
+          return (
+            <span key={cat.id} className="contents">
+              <TagChip
+                label={titleCase(cat.label)}
+                selected={catActive}
+                expandable={cat.groups.length > 0}
+                expanded={catExpanded}
+                dark={dark}
+                onClick={() => handleCategoryClick(cat)}
+              />
 
-            {catOpen && (
-              <div className={`px-3 pb-3 space-y-2 border-t ${dark ? 'border-dark-700' : 'border-gray-100'}`}>
-                {cat.groups.map(group => {
-                  const gKey = `${cat.id}:${group.id}`
-                  const gOpen = openGroups[gKey]
-                  const groupSelected = group.tags.filter(t => (selected[cat.id] || []).includes(t)).length
-                  const allInGroup = groupSelected === group.tags.length
+              {catExpanded && cat.groups.map(group => {
+                const gKey = `${cat.id}:${group.id}`
+                const gExpanded = expandedGroups[gKey]
+                const gActive = isGroupActive(cat.id, group)
+                const groupLabel = titleCase(group.shortLabel || group.label)
+                const hasBranches = group.tags.length > 1
 
-                  return (
-                    <div key={group.id} className={`rounded-xl ${dark ? 'bg-dark-800/60' : 'bg-gray-50'}`}>
-                      <button
-                        type="button"
-                        onClick={() => toggleGroup(cat.id, group.id)}
-                        className="w-full flex items-center gap-2 px-2.5 py-2 text-left"
-                      >
-                        {gOpen
-                          ? <ChevronDown size={14} className="text-zippi-400/80" />
-                          : <ChevronRight size={14} className={muted} />}
-                        <span className={`flex-1 text-xs font-semibold ${text}`}>{group.label}</span>
-                        {groupSelected > 0 && (
-                          <span className={`text-[9px] font-bold ${muted}`}>{groupSelected}/{group.tags.length}</span>
-                        )}
-                      </button>
+                return (
+                  <span key={gKey} className="contents">
+                    <TagChip
+                      label={groupLabel}
+                      selected={gActive}
+                      expandable={hasBranches}
+                      expanded={gExpanded}
+                      dark={dark}
+                      onClick={() => {
+                        if (!hasBranches) {
+                          onChange(toggleInterestTag(selected, cat.id, group.tags[0]))
+                          return
+                        }
+                        if (!gExpanded) {
+                          handleGroupClick(cat, group)
+                        } else {
+                          handleGroupSelect(cat, group)
+                        }
+                      }}
+                    />
 
-                      {gOpen && (
-                        <div className="px-2.5 pb-2.5 space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => onChange(toggleGroupTags(selected, cat.id, group.tags, !allInGroup))}
-                            className={`text-[10px] font-bold ${allInGroup ? 'text-zippi-400' : muted}`}
-                          >
-                            {allInGroup ? 'desmarcar grupo' : 'selecionar grupo'}
-                          </button>
-                          <div className="flex flex-wrap gap-1.5">
-                            {group.tags.map(tag => {
-                              const active = (selected[cat.id] || []).includes(tag)
-                              return (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  onClick={() => onChange(toggleInterestTag(selected, cat.id, tag))}
-                                  className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-colors active:scale-95 ${
-                                    active ? chipOn : chipOff
-                                  }`}
-                                >
-                                  {tag}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )
-      })}
+                    {gExpanded && hasBranches && (
+                      <div className="w-full flex flex-wrap gap-2 pt-0.5 pb-1">
+                        {group.tags.map(tag => (
+                          <TagChip
+                            key={tag}
+                            label={titleCase(tag)}
+                            selected={isTagActive(cat.id, tag)}
+                            expandable={false}
+                            dark={dark}
+                            onClick={() => onChange(toggleInterestTag(selected, cat.id, tag))}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </span>
+                )
+              })}
+            </span>
+          )
+        })}
+      </div>
+
+      <p className={`text-[10px] ${muted} leading-relaxed`}>
+        tag geral com + expande ramificações · tag azul com ✓ está selecionada
+      </p>
     </div>
   )
 }
