@@ -18,10 +18,10 @@ import {
 const ENDPOINT = 'https://overpass.kumi.systems/api/interpreter'
 const FALLBACK = 'https://overpass-api.de/api/interpreter'
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000
-const TRAFFIC_CACHE_KEY = 'turio_poa_traffic_osm_v5'
-const NATURE_CACHE_KEY = 'turio_poa_nature_osm_v3'
+const TRAFFIC_CACHE_KEY = 'tourio_poa_traffic_osm_v5'
+const NATURE_CACHE_KEY = 'tourio_poa_nature_osm_v3'
 
-const OSM_UA = 'TurioApp/1.0 (porto alegre urban copilot; contact: dev@turio.app)'
+const OSM_UA = 'TourioApp/1.0 (porto alegre urban copilot; contact: dev@tourio.app)'
 
 async function runOverpass(query, timeoutMs = 45000) {
   const ctrl = new AbortController()
@@ -50,9 +50,19 @@ async function runOverpass(query, timeoutMs = 45000) {
   }
 }
 
+const CACHE_LEGACY = {
+  [TRAFFIC_CACHE_KEY]: 'turio_poa_traffic_osm_v5',
+  [NATURE_CACHE_KEY]: 'turio_poa_nature_osm_v3',
+}
+
 function readCache(key) {
   try {
     if (typeof localStorage === 'undefined') return null
+    const legacyKey = CACHE_LEGACY[key]
+    if (legacyKey && !localStorage.getItem(key) && localStorage.getItem(legacyKey)) {
+      localStorage.setItem(key, localStorage.getItem(legacyKey))
+      localStorage.removeItem(legacyKey)
+    }
     const raw = localStorage.getItem(key)
     if (!raw) return null
     const { ts, data } = JSON.parse(raw)

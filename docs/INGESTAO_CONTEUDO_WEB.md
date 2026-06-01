@@ -1,6 +1,6 @@
 # ingestão de conteúdo web — lugares e eventos
 
-como montar a ia e o backend para ler **instagram**, **x (twitter)**, **blogs**, **jornais** e outras fontes, extrair lugares/eventos e alimentar o turio. complementa [ARQUITETURA_IA.md](./ARQUITETURA_IA.md) e [TREINAMENTO_IA_MODELOS.md](./TREINAMENTO_IA_MODELOS.md).
+como montar a ia e o backend para ler **instagram**, **x (twitter)**, **blogs**, **jornais** e outras fontes, extrair lugares/eventos e alimentar o tourio. complementa [ARQUITETURA_IA.md](./ARQUITETURA_IA.md) e [TREINAMENTO_IA_MODELOS.md](./TREINAMENTO_IA_MODELOS.md).
 
 ---
 

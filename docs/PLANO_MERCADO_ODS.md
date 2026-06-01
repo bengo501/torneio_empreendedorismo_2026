@@ -1,12 +1,12 @@
-# plano de mercado e alinhamento ods — turio
+# plano de mercado e alinhamento ods — tourio
 
-documento estratégico do turio (copiloto urbano inteligente), centrado em porto alegre no mvp e com expansão planejada para o rio grande do sul e demais regiões do brasil.
+documento estratégico do tourio (copiloto urbano inteligente), centrado em porto alegre no mvp e com expansão planejada para o rio grande do sul e demais regiões do brasil.
 
 ---
 
 ## resumo executivo
 
-o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito, clima, mobilidade — em experiências urbanas personalizadas para moradores, turistas e estudantes. diferente de apps de mapa genéricos ou redes sociais, o turio combina contexto local, mobilidade multimodal e ia conversacional em uma única interface centrada no mapa.
+o tourio transforma dados fragmentados da cidade — lugares, eventos, trânsito, clima, mobilidade — em experiências urbanas personalizadas para moradores, turistas e estudantes. diferente de apps de mapa genéricos ou redes sociais, o tourio combina contexto local, mobilidade multimodal e ia conversacional em uma única interface centrada no mapa.
 
 **proposta de valor:** "sua cidade, no seu bolso — do farmácia de emergência ao show de hoje, com a melhor forma de chegar lá."
 
@@ -72,16 +72,16 @@ o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito,
 
 | tier | preço | inclui |
 |------|-------|--------|
-| turio free | r$ 0 | mapa, essenciais, eventos básicos, 5 rotas/dia, assistente texto limitado |
-| turio plus | r$ 9,90/mês | rotas ilimitadas, alertas proativos, histórico, assistente voz completo, offline parcial |
-| turio família | r$ 19,90/mês | até 4 perfis, compartilhamento de rotas, modo crianças |
+| tourio free | r$ 0 | mapa, essenciais, eventos básicos, 5 rotas/dia, assistente texto limitado |
+| tourio plus | r$ 9,90/mês | rotas ilimitadas, alertas proativos, histórico, assistente voz completo, offline parcial |
+| tourio família | r$ 19,90/mês | até 4 perfis, compartilhamento de rotas, modo crianças |
 
 **justificativa:** manter acesso gratuito para ods 10 e 11; monetizar conveniência e personalização avançada.
 
 ### 2. listings de comércio local (b2b smb)
 
 - plano básico: presença no mapa explorar (r$ 49/mês)
-- plano destaque: pin destacado + badge "parceiro turio" + analytics (r$ 149/mês)
+- plano destaque: pin destacado + badge "parceiro tourio" + analytics (r$ 149/mês)
 - plano evento: promoção de evento na aba hoje (r$ 29/evento ou pacote mensal)
 
 **público:** restaurantes, bares, galerias, lojas de bairro, feiras.
@@ -91,7 +91,7 @@ o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito,
 ### 3. parcerias de mobilidade (revenue share)
 
 - deeplinks para uber, 99, indriver, whoosh, lime, tembici
-- comissão por corrida/viagem iniciada via turio (negociável: 1–3%)
+- comissão por corrida/viagem iniciada via tourio (negociável: 1–3%)
 - destaque patrocinado de modal em rotas específicas (ex.: patinete em distâncias < 2 km)
 
 **estado atual:** deeplinks implementados em `frontend/src/services/deeplinks.js`; apis de preço em tempo real no backlog.
@@ -155,9 +155,9 @@ o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito,
 
 ## análise competitiva
 
-### turio vs google maps
+### tourio vs google maps
 
-| dimensão | google maps | turio |
+| dimensão | google maps | tourio |
 |----------|-------------|-------|
 | foco | navegação universal | descoberta + mobilidade + contexto local |
 | eventos | limitado, sem curadoria local | aba hoje com sympla + curadoria + filtros gratuitos |
@@ -167,30 +167,30 @@ o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito,
 | ia | genérica | assistente com contexto da cidade e preferências do usuário |
 | ods | não explícito | métricas de impacto integradas ao produto |
 
-**posicionamento:** "google maps te leva; turio te mostra a cidade."
+**posicionamento:** "google maps te leva; tourio te mostra a cidade."
 
-### turio vs uber / 99
+### tourio vs uber / 99
 
-| dimensão | uber/99 | turio |
+| dimensão | uber/99 | tourio |
 |----------|---------|-------|
 | objetivo | completar corrida | otimizar deslocamento + descoberta |
 | multimodal | limitado ao ecossistema próprio | agrega todos os modais + deeplinks |
 | preço | mostra só o próprio | compara e sugere alternativa mais barata/eco |
 | destino | endereço | lugar, evento, experiência |
 
-**posicionamento:** parceiro de distribuição, não concorrente direto — turio gera demanda qualificada.
+**posicionamento:** parceiro de distribuição, não concorrente direto — tourio gera demanda qualificada.
 
-### turio vs instagram / tiktok
+### tourio vs instagram / tiktok
 
-| dimensão | instagram | turio |
+| dimensão | instagram | tourio |
 |----------|-----------|-------|
 | descoberta | algoritmo global, conteúdo efêmero | mapa geolocalizado, acionável agora |
 | confiança | influenciadores patrocinados | dados + comunidade + fontes oficiais |
 | ação | link na bio | rota + transporte + horário em um toque |
 
-**posicionamento:** "instagram inspira; turio executa."
+**posicionamento:** "instagram inspira; tourio executa."
 
-### barreiras de entrada do turio
+### barreiras de entrada do tourio
 
 - curadoria local profunda (dados poa em `frontend/src/data/poa/`)
 - integração multimodal nativa
@@ -302,7 +302,7 @@ o turio transforma dados fragmentados da cidade — lugares, eventos, trânsito,
 | q1 | backend agregador redis, gtfs trensurb, push notifications |
 | q2 | gramado + pelotas, ia recomendação contextual fase 2 |
 | q3 | contrato turismo rs, 50 smb, parceria mobilidade revenue share |
-| q4 | 50.000 mau, turio plus lançado, break-even operacional parcial |
+| q4 | 50.000 mau, tourio plus lançado, break-even operacional parcial |
 
 ### ano 3 — escala (2028)
 

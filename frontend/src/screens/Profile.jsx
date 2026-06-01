@@ -245,7 +245,7 @@ export default function Profile() {
                   <button
                     type="button"
                     onClick={() => {
-                      sessionStorage.setItem('turio-focus-place', JSON.stringify(place))
+                      sessionStorage.setItem('tourio-focus-place', JSON.stringify(place))
                       navigate('/home')
                     }}
                     className={`flex-1 flex items-center gap-3 px-2 py-2 rounded-xl text-left min-w-0 ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'}`}
@@ -274,7 +274,7 @@ export default function Profile() {
         <button
           type="button"
           onClick={() => {
-            sessionStorage.setItem('turio-open-suggest', '1')
+            sessionStorage.setItem('tourio-open-suggest', '1')
             navigate('/home')
           }}
           className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border ${bdr} ${bg2} mb-5 active:scale-[0.98] transition-transform`}
@@ -300,7 +300,7 @@ export default function Profile() {
           <MenuRow icon={<User size={16} className="text-zippi-400" />} label="editar informações" onClick={startEditAccount} dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted} />
           <MenuRow icon={<Shield size={16} className="text-purple-400" />} label="privacidade e segurança" onClick={() => navigate('/profile/info/privacy')} dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted} />
           <MenuRow icon={<HelpCircle size={16} className="text-blue-400" />} label="central de ajuda" onClick={() => navigate('/profile/info/help')} dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted} />
-          <MenuRow icon={<Info size={16} className={dim} />} label="sobre o turio" badge="v1.0 mvp" onClick={() => navigate('/profile/info/about')} dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted} last />
+          <MenuRow icon={<Info size={16} className={dim} />} label="sobre o tourio" badge="v1.0 mvp" onClick={() => navigate('/profile/info/about')} dark={dark} bg3={bg3} bdr={bdr} text={text} muted={muted} last />
         </div>
 
         <button

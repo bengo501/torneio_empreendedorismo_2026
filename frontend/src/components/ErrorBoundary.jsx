@@ -11,7 +11,7 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[Turio Error]', error, info)
+    console.error('[Tourio Error]', error, info)
   }
 
   render() {
@@ -24,7 +24,7 @@ export default class ErrorBoundary extends Component {
         }}>
           <div style={{ fontSize:48, marginBottom:16 }}>⚡</div>
           <p style={{ color:'#3DED7A', fontWeight:900, fontSize:16, marginBottom:8 }}>
-            Turio encontrou um problema
+            Tourio encontrou um problema
           </p>
           <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12, textAlign:'center', marginBottom:24, maxWidth:280 }}>
             {this.state.error?.message ?? 'Erro desconhecido'}

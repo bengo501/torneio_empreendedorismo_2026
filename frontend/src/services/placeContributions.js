@@ -1,4 +1,5 @@
-const KEY = 'turio-place-contributions'
+const KEY = 'tourio-place-contributions'
+const OLD_KEY = 'turio-place-contributions'
 
 export const PLACE_CATEGORIES = [
   { id: 'cultura', label: 'cultura' },
@@ -15,6 +16,13 @@ export const PLACE_CATEGORIES = [
 
 export function getPlaceContributions() {
   try {
+    if (!localStorage.getItem(KEY)) {
+      const legacy = localStorage.getItem(OLD_KEY)
+      if (legacy) {
+        localStorage.setItem(KEY, legacy)
+        localStorage.removeItem(OLD_KEY)
+      }
+    }
     return JSON.parse(localStorage.getItem(KEY) || '[]')
   } catch {
     return []

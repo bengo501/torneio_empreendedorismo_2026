@@ -64,7 +64,7 @@ export default function SuggestPlaceModal({ lat, lon, onClose, onAdded }) {
         ) : (
           <div className="px-5 pb-8 flex flex-col gap-3">
             <p className={`text-xs ${muted}`}>
-              ajude a manter o turio atualizado. sua sugestão fica na fila até validação (ver docs/contribuicao).
+              ajude a manter o tourio atualizado. sua sugestão fica na fila até validação (ver docs/contribuicao).
             </p>
             {lat != null && (
               <p className={`text-xs ${muted} flex items-center gap-1`}>

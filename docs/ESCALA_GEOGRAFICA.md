@@ -1,6 +1,6 @@
-# escala geográfica — turio
+# escala geográfica — tourio
 
-estratégia de expansão territorial do turio: porto alegre → cidades do rs → regiões do brasil → internacional. define requisitos técnicos, parceiros de dados e governança por fase.
+estratégia de expansão territorial do tourio: porto alegre → cidades do rs → regiões do brasil → internacional. define requisitos técnicos, parceiros de dados e governança por fase.
 
 ---
 
@@ -262,4 +262,4 @@ export default {
 - [PLANO_MERCADO_ODS.md](./PLANO_MERCADO_ODS.md) — go-to-market
 - [DADOS_URBANOS_MAPA.md](./DADOS_URBANOS_MAPA.md) — pipeline dados
 - [ORGANIZACAO_PROJETO.md](./ORGANIZACAO_PROJETO.md) — como adicionar cidade
-- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — turio-701+
+- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — tourio-701+

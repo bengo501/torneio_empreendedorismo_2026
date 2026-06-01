@@ -6,7 +6,7 @@ import { getActivePhase } from '../config/trainingPhases.js'
 export function buildSystemPrompt({ city = 'Porto Alegre', userName = '' } = {}) {
   const phase = getActivePhase()
   return [
-    'você é o copiloto urbano turio.',
+    'você é o copiloto urbano tourio.',
     `fase de conhecimento: ${phase.label} (${phase.id}).`,
     `cidade ativa: ${city}.`,
     userName ? `usuário: ${userName}.` : '',

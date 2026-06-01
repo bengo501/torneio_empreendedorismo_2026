@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 
-const STORAGE_KEY = 'turio-user-profile'
+const STORAGE_KEY = 'tourio-user-profile'
+const LEGACY_STORAGE_KEY = 'turio-user-profile'
 
 const DEFAULT_USER = {
   name: 'João',
@@ -19,7 +20,14 @@ const DEFAULT_USER = {
 
 function loadStoredUser() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+      if (raw) {
+        localStorage.setItem(STORAGE_KEY, raw)
+        localStorage.removeItem(LEGACY_STORAGE_KEY)
+      }
+    }
     if (!raw) return { ...DEFAULT_USER }
     return { ...DEFAULT_USER, ...JSON.parse(raw) }
   } catch {

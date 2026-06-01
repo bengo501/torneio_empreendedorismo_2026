@@ -334,12 +334,19 @@ export default function Home() {
     geocodePendingPlaces(POA_PLACES, { max: 8 }).then(cache => {
       setPoaPlaces(prev => applyGeocodeCache(prev.length ? prev : POA_PLACES, cache))
     })
-    if (sessionStorage.getItem('turio-open-suggest') === '1') {
+    const openSuggest =
+      sessionStorage.getItem('tourio-open-suggest') === '1' ||
+      sessionStorage.getItem('turio-open-suggest') === '1'
+    if (openSuggest) {
+      sessionStorage.removeItem('tourio-open-suggest')
       sessionStorage.removeItem('turio-open-suggest')
       setShowSuggestPlace(true)
     }
-    const focusRaw = sessionStorage.getItem('turio-focus-place')
+    const focusRaw =
+      sessionStorage.getItem('tourio-focus-place') ||
+      sessionStorage.getItem('turio-focus-place')
     if (focusRaw) {
+      sessionStorage.removeItem('tourio-focus-place')
       sessionStorage.removeItem('turio-focus-place')
       try {
         const p = JSON.parse(focusRaw)
@@ -1526,7 +1533,7 @@ export default function Home() {
                       style={{ background:'rgba(61,237,122,0.08)', border:'1px solid rgba(61,237,122,0.2)' }}>
                       <span className="text-xl flex-shrink-0">🌍</span>
                       <div>
-                        <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Turio</p>
+                        <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Tourio</p>
                         <p className={`text-xs ${muted}`}>
                           Patinete ou bike economiza até{' '}
                           <span className="text-zippi-400 font-semibold">{(resultKm * 0.12).toFixed(2)} kg de CO₂</span>!
@@ -1571,7 +1578,7 @@ export default function Home() {
                   )}
 
                   <p className={`text-center text-xs mt-4 mb-2 px-5 ${dim}`}>
-                    Preços estimados. Turio não possui vínculo com os serviços.
+                    Preços estimados. Tourio não possui vínculo com os serviços.
                   </p>
                 </div>
               )}

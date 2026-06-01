@@ -93,7 +93,7 @@ export default function Login() {
             </div>
           </div>
           <div className="text-center">
-            <h1 className="text-4xl font-black text-white tracking-tight">Turio</h1>
+            <h1 className="text-4xl font-black text-white tracking-tight">Tourio</h1>
             <p className="text-xs text-zippi-400/90 font-semibold mt-0.5 tracking-wide">
               Acesso urbano inteligente
             </p>
@@ -120,7 +120,7 @@ export default function Login() {
               Acesso urbano para todos
             </h2>
             <p className="text-dark-400 text-sm mb-1 leading-relaxed">
-              Turio conecta pessoas à cidade com IA, multimodalidade e impacto social.
+              Tourio conecta pessoas à cidade com IA, multimodalidade e impacto social.
             </p>
             <p className="text-dark-600 text-xs mb-6">
               Entre com seu celular para começar
@@ -167,7 +167,7 @@ export default function Login() {
               <span className="text-zippi-400">Termos de Uso</span>
               {' '}e{' '}
               <span className="text-zippi-400">Política de Privacidade</span>
-              {' '}do Turio.
+              {' '}do Tourio.
             </p>
 
             <div className="flex-1" />

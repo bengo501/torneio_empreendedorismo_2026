@@ -53,16 +53,16 @@ const PAGES = {
       },
       {
         heading: 'contato',
-        body: 'suporte do mvp: equipe do torneio / turio. e-mail de suporte a definir na versão publicada.',
+        body: 'suporte do mvp: equipe do torneio / tourio. e-mail de suporte a definir na versão publicada.',
       },
     ],
   },
   about: {
-    title: 'sobre o turio',
+    title: 'sobre o tourio',
     sections: [
       {
         heading: 'o que é',
-        body: 'turio é um copiloto urbano: mobilidade + descoberta da cidade + ia contextual. conecta moradores e visitantes a lugares, eventos, economia local e rotas inteligentes.',
+        body: 'tourio é um copiloto urbano: mobilidade + descoberta da cidade + ia contextual. conecta moradores e visitantes a lugares, eventos, economia local e rotas inteligentes.',
       },
       {
         heading: 'versão',

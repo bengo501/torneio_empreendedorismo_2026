@@ -1,5 +1,16 @@
-const KEY = 'turio-saved-places-v2'
-const LEGACY_KEY = 'turio-saved-places'
+const KEY = 'tourio-saved-places-v2'
+const LEGACY_KEY = 'tourio-saved-places'
+const OLD_KEY = 'turio-saved-places-v2'
+const OLD_LEGACY_KEY = 'turio-saved-places'
+
+function migrateStorageKey(next, prev) {
+  if (typeof localStorage === 'undefined') return
+  if (localStorage.getItem(next)) return
+  const raw = localStorage.getItem(prev)
+  if (!raw) return
+  localStorage.setItem(next, raw)
+  localStorage.removeItem(prev)
+}
 
 function normalizeEntry(raw) {
   if (!raw?.id) return null
@@ -18,6 +29,8 @@ function normalizeEntry(raw) {
 
 function readRaw() {
   try {
+    migrateStorageKey(KEY, OLD_KEY)
+    migrateStorageKey(LEGACY_KEY, OLD_LEGACY_KEY)
     const v2 = localStorage.getItem(KEY)
     if (v2) {
       const list = JSON.parse(v2)

@@ -53,8 +53,8 @@ function makeIcon(emoji, color = GREEN, size = 34) {
 function makeUserPinIcon() {
   const outline = '2.5px'
   return L.divIcon({
-    html: `<div class="turio-user-pin" style="position:relative;width:34px;height:54px">
-      <div class="turio-user-pulse" style="position:absolute;left:50%;bottom:1px;width:26px;height:26px;border-radius:50%;background:${GREEN};opacity:0.52"></div>
+    html: `<div class="tourio-user-pin" style="position:relative;width:34px;height:54px">
+      <div class="tourio-user-pulse" style="position:absolute;left:50%;bottom:1px;width:26px;height:26px;border-radius:50%;background:${GREEN};opacity:0.52"></div>
       <div style="position:absolute;left:50%;top:27px;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:17px solid #fff"></div>
       <div style="position:absolute;left:50%;top:29px;transform:translateX(-50%);width:0;height:0;border-left:9.5px solid transparent;border-right:9.5px solid transparent;border-top:13px solid ${GREEN_DARK}"></div>
       <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:linear-gradient(145deg,#5AE88A 0%,${GREEN} 45%,${GREEN_DARK} 100%);border:${outline} solid #fff;box-shadow:0 2px 12px rgba(52,199,89,0.5)"></div>
@@ -208,10 +208,10 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       const s = document.createElement('style')
       s.id = 'zippi-map-css'
       s.textContent = `
-        @keyframes turioUserPulse{0%{transform:translateX(-50%) scale(0.5);opacity:.58}70%{transform:translateX(-50%) scale(2.15);opacity:0}100%{transform:translateX(-50%) scale(2.15);opacity:0}}
-        @keyframes turioUserBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-        .turio-user-pulse{left:50%!important;transform:translateX(-50%);animation:turioUserPulse 1.7s ease-out infinite}
-        .turio-user-pin{animation:turioUserBob 2s ease-in-out infinite;filter:drop-shadow(0 2px 6px rgba(52,199,89,0.35))}
+        @keyframes tourioUserPulse{0%{transform:translateX(-50%) scale(0.5);opacity:.58}70%{transform:translateX(-50%) scale(2.15);opacity:0}100%{transform:translateX(-50%) scale(2.15);opacity:0}}
+        @keyframes tourioUserBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        .tourio-user-pulse{left:50%!important;transform:translateX(-50%);animation:tourioUserPulse 1.7s ease-out infinite}
+        .tourio-user-pin{animation:tourioUserBob 2s ease-in-out infinite;filter:drop-shadow(0 2px 6px rgba(52,199,89,0.35))}
         .leaflet-container{font-family:Inter,system-ui,sans-serif;z-index:0!important}
         .leaflet-pane{z-index:1!important}
         .leaflet-tile-pane{z-index:1!important}

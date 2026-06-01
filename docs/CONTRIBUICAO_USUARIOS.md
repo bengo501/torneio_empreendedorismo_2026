@@ -1,6 +1,6 @@
 # contribuição da comunidade — lugares e correções
 
-feature para **usuários ajudarem a manter o turio**: sugerir novos lugares, corrigir endereço, avisar que fechou.
+feature para **usuários ajudarem a manter o tourio**: sugerir novos lugares, corrigir endereço, avisar que fechou.
 
 ---
 
@@ -20,7 +20,7 @@ feature para **usuários ajudarem a manter o turio**: sugerir novos lugares, cor
 ```mermaid
 sequenceDiagram
   participant U as usuário
-  participant App as turio app
+  participant App as tourio app
   participant LS as localStorage
   participant API as backend futuro
 
@@ -35,7 +35,7 @@ sequenceDiagram
 
 - botão **sugerir lugar** na aba explorar (porto alegre).
 - modal: nome, categoria, endereço ou posição do mapa, comentário opcional.
-- armazenamento local: `turio-place-contributions` (até backend existir).
+- armazenamento local: `tourio-place-contributions` (até backend existir).
 
 arquivos:
 

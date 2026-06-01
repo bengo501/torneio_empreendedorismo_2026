@@ -31,6 +31,6 @@ export function classifyUrbanData(raw = {}) {
     mapFilter,
     confidence: raw.source === 'curadoria' ? 0.92 : 0.65,
     phaseId: phase.id,
-    model: 'turio-classify-v0-regex',
+    model: 'tourio-classify-v0-regex',
   }
 }

@@ -1,6 +1,6 @@
-# dados urbanos e mapa dinâmico — turio
+# dados urbanos e mapa dinâmico — tourio
 
-especificação do pipeline que transforma fontes brutas (osm, apis, curadoria, comunidade) em camadas acionáveis no mapa turio. complementa [CITY_MAPPING.md](./CITY_MAPPING.md) e [DATA_SOURCES.md](./DATA_SOURCES.md).
+especificação do pipeline que transforma fontes brutas (osm, apis, curadoria, comunidade) em camadas acionáveis no mapa tourio. complementa [CITY_MAPPING.md](./CITY_MAPPING.md) e [DATA_SOURCES.md](./DATA_SOURCES.md).
 
 ---
 
@@ -88,13 +88,13 @@ funções exportadas:
 
 **endpoints:** primário `overpass-api.de`, fallback `overpass.kumi.systems`.
 
-**user-agent:** `TurioApp/1.0 (porto alegre urban copilot; contact: dev@turio.app)`.
+**user-agent:** `TourioApp/1.0 (porto alegre urban copilot; contact: dev@tourio.app)`.
 
 ### serviço poa especializado — `frontend/src/services/poaMapLayers.js`
 
 - bbox fixo poa (`POA_BBOX` em `osmGeometry.js`)
 - merge geometria osm com dados mock trânsito (`portoAlegreTrafficData.js`)
-- cache localStorage ttl 7 dias (`turio_poa_traffic_osm_v3`, `turio_poa_nature_osm_v3`)
+- cache localStorage ttl 7 dias (`tourio_poa_traffic_osm_v3`, `tourio_poa_nature_osm_v3`)
 - parsing via `parseNatureElements` em `osmGeometry.js`
 
 **fluxo trânsito poa:**
@@ -400,4 +400,4 @@ limites: área nova no mapa ainda carrega tiles uma vez; cache expira após 14 d
 
 - [APIS.md](./APIS.md)
 - [DATA_SOURCES.md](./DATA_SOURCES.md)
-- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — turio-102, turio-103, turio-301
+- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — tourio-102, tourio-103, tourio-301

@@ -67,7 +67,7 @@ export async function reverseGeocodeDetailed(lat, lon) {
       {
         headers: {
           'Accept-Language': 'pt-BR',
-          'User-Agent': 'TurioApp/1.0 (porto alegre; contact: dev@turio.app)',
+          'User-Agent': 'TourioApp/1.0 (porto alegre; contact: dev@tourio.app)',
         },
       },
     )

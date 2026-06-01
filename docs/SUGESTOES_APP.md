@@ -1,6 +1,6 @@
-# sugestões de funcionalidades — turio
+# sugestões de funcionalidades — tourio
 
-catálogo de ideias para evolução do turio além do mvp atual (mapa poa, essenciais, explorar, hoje, ir, assistente voz protótipo). organizado por domínio; priorização em [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md).
+catálogo de ideias para evolução do tourio além do mvp atual (mapa poa, essenciais, explorar, hoje, ir, assistente voz protótipo). organizado por domínio; priorização em [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md).
 
 ---
 
@@ -55,7 +55,7 @@ catálogo de ideias para evolução do turio além do mvp atual (mapa poa, essen
 
 ## gamificação
 
-35. **pontos turio** — por relatos, check-ins, rotas eco, descobertas
+35. **pontos tourio** — por relatos, check-ins, rotas eco, descobertas
 36. **missões diárias** — "visite um parque", "use transporte eco", "reporte trânsito"
 37. **conquistas** — selos por bairros explorados, eventos gratuitos, km a pé
 38. **ranking por bairro** — competição saudável entre regiões
@@ -91,7 +91,7 @@ ver implementação detalhada em [ARQUITETURA_IA.md](./ARQUITETURA_IA.md).
 56. **destaque a negócios de impacto** — cooperativas, economia solidária, artesanato
 57. **programa "compre local"** — badge em lugares independentes vs redes
 58. **reserva de mesa** — deeplink ou api para restaurantes parceiros
-59. **doação para causas locais** — arredondamento em turio plus
+59. **doação para causas locais** — arredondamento em tourio plus
 60. **vitrine de artesãos** — perfil ampliado para produtores na rota do vinho
 
 ---
@@ -115,8 +115,8 @@ ver implementação detalhada em [ARQUITETURA_IA.md](./ARQUITETURA_IA.md).
 
 71. **painel do comerciante** — editar horário, promoção, foto do pin
 72. **analytics de descoberta** — quantas visualizações e rotas gerou
-73. **turio for teams** — deslocamento corporativo, relatórios co₂
-74. **api white-label** — prefeitura embeda mapa turio no site oficial
+73. **tourio for teams** — deslocamento corporativo, relatórios co₂
+74. **api white-label** — prefeitura embeda mapa tourio no site oficial
 75. **gestão de eventos oficiais** — secretaria publica eventos verificados
 76. **campanhas patrocinadas** — destaque temporário em categoria (ex.: pizza)
 77. **integração erp/fechamento** — horário de funcionamento sincronizado
@@ -143,14 +143,14 @@ ver implementação detalhada em [ARQUITETURA_IA.md](./ARQUITETURA_IA.md).
 
 89. **notificações push inteligentes** — evento perto, chuva, trânsito na rota habitual
 90. **widget home screen** — "eventos hoje" ou "trânsito no caminho"
-91. **atalhos siri/google assistant** — "ei turio, farmácia perto"
+91. **atalhos siri/google assistant** — "ei tourio, farmácia perto"
 92. **modo turista vs morador** — ui adaptada ao perfil declarado
 93. **multi-idioma** — pt-br, en, es desde fase internacional
 94. **modo economia de bateria** — reduz polling e animações
 95. **sincronização entre dispositivos** — favoritos e histórico na nuvem
 96. **modo família** — perfis infantis com lugares seguros
 97. **integração calendário** — exportar evento salvo para google/apple calendar
-98. **deep linking universal** — `turio.app/poa/evento/123` abre direto no app
+98. **deep linking universal** — `tourio.app/poa/evento/123` abre direto no app
 
 ---
 
@@ -212,18 +212,18 @@ ver implementação detalhada em [ARQUITETURA_IA.md](./ARQUITETURA_IA.md).
 algumas funcionalidades só fazem sentido após infra base:
 
 ```
-turio-301 agregador api
+tourio-301 agregador api
   ├── scheduler eventos (88)
   ├── confidence scores (81)
   ├── deduplicação (82)
   └── endpoint city map (79)
 
-turio-401 ia fase 1
+tourio-401 ia fase 1
   ├── recomendação contextual (44)
   ├── resumo eventos (46)
   └── planejador de dia (51)
 
-turio-501 embaixadores
+tourio-501 embaixadores
   ├── moderação comunitária (32)
   ├── listas colaborativas (31)
   └── vitrine artesãos (60)

@@ -1,5 +1,5 @@
 /**
- * fases de treinamento dos modelos turio (escala geográfica).
+ * fases de treinamento dos modelos tourio (escala geográfica).
  * poa → rs → brasil → mundo — ver docs/TREINAMENTO_IA_MODELOS.md
  */
 

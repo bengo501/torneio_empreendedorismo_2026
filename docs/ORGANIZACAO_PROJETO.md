@@ -1,4 +1,4 @@
-# organização do projeto — turio
+# organização do projeto — tourio
 
 guia para desenvolvedores: estrutura do monorepo, convenções, fluxo git, testes, variáveis de ambiente e receitas para adicionar cidade ou tela.
 
@@ -7,7 +7,7 @@ guia para desenvolvedores: estrutura do monorepo, convenções, fluxo git, teste
 ## visão do monorepo
 
 ```
-turio/  (package name interno: zippi — migração gradual para turio)
+tourio/  (package name interno: zippi — migração gradual para tourio)
 ├── frontend/                 # react 18 + vite + leaflet (pwa)
 │   ├── src/
 │   │   ├── screens/          # rotas/páginas
@@ -95,7 +95,7 @@ dados estáticos e curadoria:
 | ids cidade | lowercase slug | `poa`, `bentogoncalves` |
 | branches git | tipo/descricao-curta | `feat/gtfs-trensurb` |
 | commits | imperativo, português ou inglês consistente | `adiciona cache overpass poa` |
-| issues | turio-NNN prefix | `[turio-201] gtfs trensurb` |
+| issues | tourio-NNN prefix | `[tourio-201] gtfs trensurb` |
 
 **idioma:** ui e docs em português; código (nomes variáveis) em inglês.
 
@@ -114,7 +114,7 @@ dados estáticos e curadoria:
 1. branch a partir de `main`
 2. commits pequenos e focados
 3. pr com descrição: o quê, por quê, como testar
-4. link issue `closes turio-XXX`
+4. link issue `closes tourio-XXX`
 5. 1 approval mínimo (ou self-review em solo dev com checklist)
 6. squash merge preferido
 
@@ -128,7 +128,7 @@ dados estáticos e curadoria:
 
 ## estratégia de testes
 
-**estado atual:** testes manuais; automatização no backlog (turio-601).
+**estado atual:** testes manuais; automatização no backlog (tourio-601).
 
 ### pirâmide alvo
 
@@ -187,7 +187,7 @@ arquivo `.env` na raiz (copiar de `.env.example`):
 5. registrar em seletor de `Home.jsx` (explorar/hoje)
 6. implementar `flyTo` com centro da config
 7. documentar em `docs/` e checklist em [ESCALA_GEOGRAFICA.md](./ESCALA_GEOGRAFICA.md)
-8. issue `turio-7xx` no backlog
+8. issue `tourio-7xx` no backlog
 
 **essenciais:** sempre usam gps real do usuário — não mudam com cidade explorar selecionada.
 
@@ -234,7 +234,7 @@ export default function MinhaTela() {
 ## code review checklist
 
 ### funcionalidade
-- [ ] atende critérios de aceite da issue turio-XXX
+- [ ] atende critérios de aceite da issue tourio-XXX
 - [ ] edge cases: sem gps, api offline, cidade sem dados
 
 ### código
@@ -292,11 +292,11 @@ resumo:
 
 | item | issue | nota |
 |------|-------|------|
-| nome zippi vs turio | turio-600 | renomear gradualmente |
-| assistente regex only | turio-401 | migrar para llm |
-| trânsito simulado | turio-101 | label + api real |
-| comunidade localStorage | turio-300 | migrar api |
-| sem testes auto | turio-601 | vitest + playwright |
+| nome zippi vs tourio | tourio-600 | renomear gradualmente |
+| assistente regex only | tourio-401 | migrar para llm |
+| trânsito simulado | tourio-101 | label + api real |
+| comunidade localStorage | tourio-300 | migrar api |
+| sem testes auto | tourio-601 | vitest + playwright |
 
 ---
 

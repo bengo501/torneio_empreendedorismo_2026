@@ -144,7 +144,7 @@ export default function Results() {
             )}
 
             <p className={`text-center text-xs mt-2 ${dim}`}>
-              Turio não possui vínculo com nenhum dos serviços listados.<br />
+              Tourio não possui vínculo com nenhum dos serviços listados.<br />
               Preços estimados com base em dados públicos.
             </p>
           </div>
@@ -158,7 +158,7 @@ export default function Results() {
               <div className="mx-5 mb-4 flex items-start gap-3 bg-zippi-900/20 border border-zippi-400/20 rounded-2xl px-4 py-3 animate-fade-in">
                 <span className="text-xl flex-shrink-0">🌍</span>
                 <div>
-                  <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Turio</p>
+                  <p className="text-xs font-bold text-zippi-400 mb-0.5">Dica Tourio</p>
                   <p className={`text-xs ${muted}`}>
                     Para {km} km, patinete ou bike economiza até{' '}
                     <span className="text-zippi-400 font-semibold">{(km * 0.12).toFixed(2)} kg de CO₂</span>{' '}
@@ -193,7 +193,7 @@ export default function Results() {
               ))}
 
               <p className={`text-center text-xs mt-2 ${dim}`}>
-                Turio não possui vínculo com nenhum dos serviços listados.<br />
+                Tourio não possui vínculo com nenhum dos serviços listados.<br />
                 Preços estimados com base em dados públicos.
               </p>
             </div>

@@ -1,6 +1,6 @@
-# melhorias de adoção — turio
+# melhorias de adoção — tourio
 
-estratégia integrada para aumentar uso real do turio: melhorias técnicas que reduzem fricção e estratégias humanas/comportamentais que criam hábito e comunidade. complementa [PLANO_MERCADO_ODS.md](./PLANO_MERCADO_ODS.md) e [SUGESTOES_APP.md](./SUGESTOES_APP.md).
+estratégia integrada para aumentar uso real do tourio: melhorias técnicas que reduzem fricção e estratégias humanas/comportamentais que criam hábito e comunidade. complementa [PLANO_MERCADO_ODS.md](./PLANO_MERCADO_ODS.md) e [SUGESTOES_APP.md](./SUGESTOES_APP.md).
 
 ---
 
@@ -12,7 +12,7 @@ estratégia integrada para aumentar uso real do turio: melhorias técnicas que r
 4. **confiança** — dúvida sobre precisão de eventos e trânsito
 5. **fricção técnica** — lentidão overpass, sem offline, sem push
 
-o turio precisa vencer nos momentos **agora** (farmácia, chuva, evento hoje) e **recorrentes** (trânsito matinal, fim de semana cultural).
+o tourio precisa vencer nos momentos **agora** (farmácia, chuva, evento hoje) e **recorrentes** (trânsito matinal, fim de semana cultural).
 
 ---
 
@@ -109,7 +109,7 @@ implementação: web push (vapid) no pwa; depois fcm se app nativo.
 estado atual: `community.js` + localStorage + modal no mapa.
 
 **evolução:**
-- pontos por relato validado (ver turio-004)
+- pontos por relato validado (ver tourio-004)
 - badge "olho do bairro" após 10 relatos úteis
 - embaixadores moderam relatos duplicados ou spam
 - relatos alimentam camada trânsito com confidence boost
@@ -118,11 +118,11 @@ estado atual: `community.js` + localStorage + modal no mapa.
 
 ### embaixadores de cidade e bairro
 
-programa piloto (turio-501):
+programa piloto (tourio-501):
 
 | papel | responsabilidade | benefício |
 |-------|------------------|-----------|
-| embaixador bairro | validar pois, relatos, indicar comerciantes | turio plus grátis 6 meses |
+| embaixador bairro | validar pois, relatos, indicar comerciantes | tourio plus grátis 6 meses |
 | embaixador universidade | divulgar no campus, feedback mensal | swag + menção no app |
 | embaixador turismo | curadoria eventos e rotas temáticas | networking com secretaria |
 
@@ -134,7 +134,7 @@ instituições alvo poa: ufrgs, pucrs, unisinos, feevale, upf.
 
 **ativos:**
 - "mapa do estudante" — eventos gratuitos, bibliotecas, bandejão, ciclovias
-- hackathon turio — dados abertos + api
+- hackathon tourio — dados abertos + api
 - pesquisa conjunta — mobilidade sustentável, ods
 
 **métrica:** cadastros com email `.edu.br`; sessões em horário de intervalo.
@@ -161,9 +161,9 @@ gatilho → ação → recompensa → investimento
 | fim de semana | missão gamificada | explorar parque | badge + desconto parceiro | check-in, relato |
 | emergência | busca farmácia | essenciais | alívio imediato | confiar no app |
 
-### por que usar turio vs instagram
+### por que usar tourio vs instagram
 
-| instagram | turio |
+| instagram | tourio |
 |-----------|-------|
 | descoberta passiva no feed | descoberta ativa no mapa ao redor |
 | conteúdo patrocinado misturado | filtros claros gratuito/parceiro |
@@ -173,9 +173,9 @@ gatilho → ação → recompensa → investimento
 
 **mensagem de marketing:** "pare de screenshot. vá."
 
-### por que usar turio vs google maps
+### por que usar tourio vs google maps
 
-| google maps | turio |
+| google maps | tourio |
 |-------------|-------|
 | genérico global | curado para poa e rs |
 | eventos fracos | aba hoje com sympla + cultura local |
@@ -183,7 +183,7 @@ gatilho → ação → recompensa → investimento
 | reviews antigos | relatos recentes da comunidade |
 | zero gamificação/comunidade | embaixadores, missões, economia local |
 
-**mensagem:** "google te leva. turio te mostra a cidade."
+**mensagem:** "google te leva. tourio te mostra a cidade."
 
 ---
 
@@ -242,7 +242,7 @@ gatilho → ação → recompensa → investimento
 - [ ] programa embaixadores
 - [ ] parceria universidade
 - [ ] qr codes pontos turísticos
-- [ ] conteúdo "turio vs google/instagram"
+- [ ] conteúdo "tourio vs google/instagram"
 - [ ] missões gamificadas semanais
 
 ---
@@ -250,5 +250,5 @@ gatilho → ação → recompensa → investimento
 ## referências
 
 - [MELHORIAS_ADOCAO.md](./MELHORIAS_ADOCAO.md) — este documento
-- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — turio-001, turio-002, turio-501
+- [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) — tourio-001, tourio-002, tourio-501
 - [PLANO_MERCADO_ODS.md](./PLANO_MERCADO_ODS.md) — go-to-market

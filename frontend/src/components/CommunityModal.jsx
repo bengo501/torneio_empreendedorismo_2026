@@ -37,7 +37,7 @@ export default function CommunityModal({ lat, lon, onClose, onAdded }) {
           <div className="flex flex-col items-center gap-3 py-10">
             <span className="text-5xl">✅</span>
             <p className={`font-bold ${text}`}>Ocorrência reportada!</p>
-            <p className={`text-sm ${muted}`}>Obrigado por ajudar a comunidade Turio</p>
+            <p className={`text-sm ${muted}`}>Obrigado por ajudar a comunidade Tourio</p>
           </div>
         ) : (
           <div className="px-5 pb-8">

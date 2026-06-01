@@ -8,7 +8,7 @@ como manter o cadastro de lugares **sempre atualizado** sem depender só de edi�
 
 | camada | papel | frequência |
 |--------|-------|------------|
-| **curadoria turio** | lugares verificados, copy, ods, economia local | contínua |
+| **curadoria tourio** | lugares verificados, copy, ods, economia local | contínua |
 | **sync automático** | apis (google, osm) detectam novos/fechados | diária / semanal |
 | **comunidade** | usuários sugerem e corrigem | tempo real → moderação |
 
@@ -36,7 +36,7 @@ para cada bairro ou tile da cidade:
   para cada place_id:
     se não existe no kb → criar candidato
     se existe → comparar name, formatted_address, opening_hours
-    se CLOSED_PERMANENTLY → marcar inactive no turio
+    se CLOSED_PERMANENTLY → marcar inactive no tourio
   gravar last_sync_at + google_place_id
 ```
 
@@ -52,14 +52,14 @@ ver também [CHAVES_API.md](./CHAVES_API.md) e [APIS.md](./APIS.md).
 
 ## openstreetmap (alternativa / complemento)
 
-já usado no turio para essenciais e natureza (`overpass.js`).
+já usado no tourio para essenciais e natureza (`overpass.js`).
 
 | vantagem | limite |
 |----------|--------|
 | gratuito, sem chave | dados comerciais incompletos |
 | bom para parques, ônibus, vias | horário de loja nem sempre |
 
-job semanal: overpass `amenity=*` no polígono de poa → diff com `POA_PLACES` → relatório de “faltando no turio”.
+job semanal: overpass `amenity=*` no polígono de poa → diff com `POA_PLACES` → relatório de “faltando no tourio”.
 
 ---
 
@@ -68,7 +68,7 @@ job semanal: overpass `amenity=*` no polígono de poa → diff com `POA_PLACES` 
 | sinal | ação |
 |-------|------|
 | place fechado no google | `active: false`, manter histórico |
-| novo pois no maps não no turio | candidato + moderação ou auto se score alto |
+| novo pois no maps não no tourio | candidato + moderação ou auto se score alto |
 | endereço divergente | flag `needs_review` |
 | seed antigo (> 90 dias) | re-geocode nominatim |
 

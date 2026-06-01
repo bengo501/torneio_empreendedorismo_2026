@@ -1,6 +1,6 @@
-# arquitetura de ia — turio
+# arquitetura de ia — tourio
 
-guia completo dos três sistemas de inteligência artificial do turio: coleta e enriquecimento de dados, recomendação contextual e assistente conversacional. baseado no estado atual do mvp (parser regex em `VoiceAssistant.jsx`, stubs em `frontend/src/ai/`) e roadmap até produção plena.
+guia completo dos três sistemas de inteligência artificial do tourio: coleta e enriquecimento de dados, recomendação contextual e assistente conversacional. baseado no estado atual do mvp (parser regex em `VoiceAssistant.jsx`, stubs em `frontend/src/ai/`) e roadmap até produção plena.
 
 **treinamento por fase geográfica (poa → rs → brasil → mundo):** ver [TREINAMENTO_IA_MODELOS.md](./TREINAMENTO_IA_MODELOS.md).
 
@@ -40,7 +40,7 @@ flowchart TB
     MEM --> LLM
     RAG --> LLM
     SAF --> LLM
-    LLM --> MAP[integração mapa turio]
+    LLM --> MAP[integração mapa tourio]
     RNK --> MAP
 ```
 
@@ -63,7 +63,7 @@ flowchart TB
 | curadoria manual | json `data/poa/raw/` | contínua | lugares verificados |
 | rss portais (zh, g1, cultura.rs) | scraping backend | 24h | eventos candidatos |
 | google places (opcional) | api paga | semanal | enriquecimento comercial |
-| relatos comunidade | api turio | tempo real | alertas, confidence boost |
+| relatos comunidade | api tourio | tempo real | alertas, confidence boost |
 | weather open-meteo | api | 1h | contexto recomendação |
 
 ### pipeline ingestão
@@ -82,7 +82,7 @@ raw document
 ### scraping — diretrizes
 
 - respeitar robots.txt e rate limits
-- user-agent identificável: `TurioBot/1.0 (+https://turio.app/bot)`
+- user-agent identificável: `TourioBot/1.0 (+https://tourio.app/bot)`
 - armazenar `sourceUrl` e `scrapedAt` para auditoria
 - fallback humano: fila de revisão embaixador para itens confidence < 0.6
 
@@ -95,7 +95,7 @@ raw document
 **prompt template classificação:**
 
 ```
-você classifica itens urbanos para o app turio em porto alegre.
+você classifica itens urbanos para o app tourio em porto alegre.
 
 categorias válidas: cultura, parques, gastronomia, cafes, eventos, saude, educacao, economia, natureza, mobilidade
 
@@ -302,7 +302,7 @@ pergunta usuário
 **prompt rag template:**
 
 ```
-você é o assistente turio, copiloto urbano de porto alegre.
+você é o assistente tourio, copiloto urbano de porto alegre.
 use apenas os dados abaixo; se não souber, diga e sugira alternativa.
 
 contexto gps: {neighborhood}, {hour}h, chuva: {raining}
@@ -342,13 +342,13 @@ inclua json de ações conforme schema.
 1. **input filter** — bloquear pii solicitada, conteúdo ilegal, jailbreaks
 2. **geo bounds** — não inventar lugares fora da knowledge base; confidence mínima 0.5 para citar
 3. **output filter** — sem instruções perigosas (atravessar via proibida, etc.)
-4. **fallback** — "não encontrei isso no mapa turio; quer buscar no google maps?"
+4. **fallback** — "não encontrei isso no mapa tourio; quer buscar no google maps?"
 5. **rate limit** — 30 req/hora free, ilimitado plus
 6. **logging** — sem armazenar áudio; texto anonimizado para melhoria
 
 ---
 
-## integração com mapa turio
+## integração com mapa tourio
 
 ### callback onResult (existente)
 
@@ -396,7 +396,7 @@ GET /api/ai/recommend?city=poa&lat=&lon=
 
 ## fases de implementação 1–6
 
-### fase 1 — mvp assistente llm texto (turio-401)
+### fase 1 — mvp assistente llm texto (tourio-401)
 
 - substituir regex por chamada `/api/ai/chat` para intent navigate
 - manter stt browser; resposta texto na sheet
@@ -462,7 +462,7 @@ backend/src/ai/
 
 frontend/src/
 ├── components/VoiceAssistant.jsx  # stt/tts ui
-├── hooks/useTurioAssistant.js     # fetch chat api
+├── hooks/useTourioAssistant.js     # fetch chat api
 └── services/assistantActions.js   # mapEffects
 ```
 
@@ -481,19 +481,19 @@ frontend/src/
 
 ---
 
-## prompt para implementação (copiar para issue turio-401)
+## prompt para implementação (copiar para issue tourio-401)
 
 ```
-implementar fase 1 da arquitetura ia turio:
+implementar fase 1 da arquitetura ia tourio:
 
 1. criar backend/src/ai/chat.js com endpoint POST /api/ai/chat
 2. usar openai gpt-4o-mini com structured output json:
    intent, spokenResponse, actions[], mapEffects[], confidence
-3. system prompt: assistente turio porto alegre; tom pt-BR amigável;
+3. system prompt: assistente tourio porto alegre; tom pt-BR amigável;
    nunca inventar lugares — usar lista pois fornecida no contexto
 4. contexto request: lat, lon, city, hour, userTags (de UserContext)
 5. incluir top 20 lugares poa de data/poa/index.js no prompt (rag estático fase 1)
-6. frontend: hook useTurioAssistant.js; VoiceAssistant chama api em mode guide
+6. frontend: hook useTourioAssistant.js; VoiceAssistant chama api em mode guide
 7. mapear action set_destination → onResult existente
 8. safety: recusar temas fora escopo urbano; rate limit 30/h por ip
 9. testes: 5 prompts exemplo (navigate, recommend, query_info)
@@ -539,5 +539,5 @@ critérios de aceite:
 - interesses usuário: `frontend/src/data/interestTree.js`
 - knowledge base poa: `frontend/src/data/poa/`
 - pipeline dados: [DADOS_URBANOS_MAPA.md](./DADOS_URBANOS_MAPA.md)
-- backlog: [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) turio-401–405
+- backlog: [BACKLOG_SCRUMBAN.md](./BACKLOG_SCRUMBAN.md) tourio-401–405
 - organização código: [ORGANIZACAO_PROJETO.md](./ORGANIZACAO_PROJETO.md)

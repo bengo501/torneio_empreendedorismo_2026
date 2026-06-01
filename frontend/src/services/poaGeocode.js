@@ -1,9 +1,17 @@
 import { searchPlaces } from './geo.js'
 
-const CACHE_KEY = 'turio-poa-geocode-v1'
+const CACHE_KEY = 'tourio-poa-geocode-v1'
+const OLD_CACHE_KEY = 'turio-poa-geocode-v1'
 
 function loadCache() {
   try {
+    if (!localStorage.getItem(CACHE_KEY)) {
+      const legacy = localStorage.getItem(OLD_CACHE_KEY)
+      if (legacy) {
+        localStorage.setItem(CACHE_KEY, legacy)
+        localStorage.removeItem(OLD_CACHE_KEY)
+      }
+    }
     return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')
   } catch {
     return {}

@@ -1,6 +1,6 @@
 const ENDPOINT = 'https://overpass-api.de/api/interpreter'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
-const OSM_UA = 'TurioApp/1.0 (porto alegre urban copilot; contact: dev@turio.app)'
+const OSM_UA = 'TourioApp/1.0 (porto alegre urban copilot; contact: dev@tourio.app)'
 
 import { parseNatureElements } from './osmGeometry.js'
 

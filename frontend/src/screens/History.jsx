@@ -68,7 +68,7 @@ export default function History() {
           <ImpactRow
             color="#DD1367" dark={dark}
             label="Economia"
-            desc={`R$${impact.totalSaved.toFixed(2)} economizados com Turio`}
+            desc={`R$${impact.totalSaved.toFixed(2)} economizados com Tourio`}
             pct={Math.min(Math.round((impact.totalSaved / 30) * 100), 100)}
           />
 

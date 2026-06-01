@@ -1,4 +1,4 @@
-# treinamento de modelos de ia — turio
+# treinamento de modelos de ia — tourio
 
 complementa [ARQUITETURA_IA.md](./ARQUITETURA_IA.md) com o plano de **treinamento por escala geográfica** e o código inicial em `frontend/src/ai/`.
 
@@ -34,7 +34,7 @@ arquivo: `frontend/src/ai/collect/classifyUrbanData.js`
 1. exportar `POA_PLACES` + labels `mapFilter` como dataset jsonl (`{text, label}`)
 2. 200–500 exemplos rotulados (curadoria)
 3. avaliar acurácia em holdout 20%
-4. promover modelo `turio-classify-v1-poa` no pipeline ingestão
+4. promover modelo `tourio-classify-v1-poa` no pipeline ingestão
 
 ### sistema 2 — recomendação
 
