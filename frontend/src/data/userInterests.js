@@ -1,37 +1,5 @@
 /** tags de interesse — onboarding, perfil e recomendações da ia */
-
-export const ONBOARDING_INTERESTS = [
-  {
-    id: 'musica',
-    category: 'Música',
-    tags: ['Rock', 'Pagode', 'Samba', 'Funk', 'Eletrônica', 'Jazz', 'MPB', 'Rap', 'Trap', 'Indie', 'Sertanejo', 'Reggae'],
-  },
-  {
-    id: 'saudeBemEstar',
-    category: 'Saúde e bem-estar',
-    tags: ['Academias', 'Parques', 'Trilhas', 'Corrida', 'Caminhada', 'Yoga', 'Bike', 'Skate', 'Alimentação saudável', 'Meditação', 'Academia ao ar livre'],
-  },
-  {
-    id: 'cultura',
-    category: 'Cultura',
-    tags: ['Museus', 'Ateliês', 'Teatro', 'Cinema', 'Galerias', 'Exposições', 'Arte urbana', 'Fotografia', 'Literatura', 'História local', 'Cultura gaúcha'],
-  },
-  {
-    id: 'gastronomia',
-    category: 'Gastronomia',
-    tags: ['Mexicana', 'Churrasco', 'Xis', 'Sushi', 'Pizza', 'Hambúrguer', 'Café', 'Brunch', 'Comida vegana', 'Comida italiana', 'Doces', 'Food truck'],
-  },
-  {
-    id: 'noturno',
-    category: 'Vida noturna',
-    tags: ['Bares', 'Restaurantes', 'Baladas', 'Pubs', 'Música ao vivo', 'Karaokê', 'Happy hour', 'Drinks', 'Cerveja artesanal', 'Stand-up', 'Rolê tranquilo', 'Rolê agitado'],
-  },
-  {
-    id: 'feiras',
-    category: 'Feiras',
-    tags: ['Artesanato', 'Brechó', 'Feira orgânica', 'Moda autoral', 'Produtos locais', 'Antiguidades', 'Feira gastronômica', 'Vinis', 'Livros usados', 'Plantas', 'Economia criativa'],
-  },
-]
+export { INTEREST_CATEGORIES, countAllSelected } from './interestTree.js'
 
 export const BEHAVIOR_TAGS = [
   'gosto de lugares baratos',

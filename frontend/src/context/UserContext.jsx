@@ -11,6 +11,7 @@ const DEFAULT_USER = {
   city: 'Porto Alegre, RS',
   since: 'Maio de 2026',
   onboardingCompleted: false,
+  avatarUrl: null,
   interests: {},
   behaviorTags: [],
   transportApps: [],
@@ -58,6 +59,7 @@ export function UserProvider({ children }) {
         next.initials = initialsFromName(full)
       }
       if (patch.phone) next.phone = patch.phone
+      if ('avatarUrl' in patch) next.avatarUrl = patch.avatarUrl
       saveUser(next)
       return next
     })

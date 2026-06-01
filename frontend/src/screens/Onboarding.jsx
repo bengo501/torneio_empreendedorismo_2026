@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
 import { useUser } from '../context/UserContext.jsx'
-import {
-  ONBOARDING_INTERESTS,
-  BEHAVIOR_TAGS,
-  TRANSPORT_APP_OPTIONS,
-} from '../data/userInterests.js'
-import InterestTagPicker, { SimpleChipPicker, TransportAppPicker } from '../components/InterestTagPicker.jsx'
+import { BEHAVIOR_TAGS, TRANSPORT_APP_OPTIONS } from '../data/userInterests.js'
+import { countAllSelected } from '../data/interestTree.js'
+import ExpandableInterestPicker from '../components/ExpandableInterestPicker.jsx'
+import { SimpleChipPicker, TransportAppPicker } from '../components/InterestTagPicker.jsx'
 
 const STEPS = ['nome', 'interesses', 'comportamento', 'transporte']
 
@@ -25,8 +23,7 @@ export default function Onboarding() {
 
   const phone = location.state?.phone || '+55 (51) 9 9999-0000'
   const stepId = STEPS[step]
-
-  const interestCount = Object.values(interests).reduce((n, arr) => n + (arr?.length || 0), 0)
+  const interestCount = countAllSelected(interests)
 
   function canContinue() {
     if (stepId === 'nome') return fullName.trim().length >= 2
@@ -63,9 +60,7 @@ export default function Onboarding() {
           {STEPS.map((s, i) => (
             <div
               key={s}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i <= step ? 'bg-zippi-400' : 'bg-dark-800'
-              }`}
+              className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-zippi-400' : 'bg-dark-800'}`}
             />
           ))}
         </div>
@@ -91,14 +86,14 @@ export default function Onboarding() {
           <>
             <h1 className="text-2xl font-black text-white mb-1">o que você curte na cidade?</h1>
             <p className="text-dark-400 text-sm mb-4">
-              escolha pelo menos 3 tags — a ia usa isso para sugerir lugares e eventos
+              toque na categoria, depois no grupo e escolha tags específicas (mín. 3)
             </p>
             <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1">
-              <InterestTagPicker
-                categories={ONBOARDING_INTERESTS}
+              <ExpandableInterestPicker
                 selected={interests}
                 onChange={setInterests}
                 dark
+                minTags={3}
               />
             </div>
           </>
@@ -107,10 +102,8 @@ export default function Onboarding() {
         {stepId === 'comportamento' && (
           <>
             <h1 className="text-2xl font-black text-white mb-1">como você costuma sair?</h1>
-            <p className="text-dark-400 text-sm mb-4">
-              opcional — ajuda a ia a entender seu estilo de rolê
-            </p>
-            <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1">
+            <p className="text-dark-400 text-sm mb-4">opcional — estilo de rolê</p>
+            <div className="max-h-[52vh] overflow-y-auto">
               <SimpleChipPicker
                 tags={BEHAVIOR_TAGS}
                 selected={behaviorTags}
@@ -125,9 +118,7 @@ export default function Onboarding() {
         {stepId === 'transporte' && (
           <>
             <h1 className="text-2xl font-black text-white mb-1">como você se locomove?</h1>
-            <p className="text-dark-400 text-sm mb-4">
-              selecione os apps e modos que você usa com frequência
-            </p>
+            <p className="text-dark-400 text-sm mb-4">apps e modos que você usa</p>
             <TransportAppPicker
               options={TRANSPORT_APP_OPTIONS}
               selected={transportApps}
