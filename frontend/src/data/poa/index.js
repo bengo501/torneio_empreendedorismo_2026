@@ -12,6 +12,7 @@ import eventSources from './raw/eventSources.js'
 import eventosMock from './raw/eventosMock.js'
 import { normalizePlace, normalizeEventMock } from './normalize.js'
 import { pinMeta } from './mapCategories.js'
+import { buildNeighborhoodCatalog } from './neighborhoodAnalysis.js'
 
 const RAW_ALL = [
   ...farmacias,
@@ -38,7 +39,10 @@ export const POA_ESSENTIALS = POA_PLACES.filter(p => p.tab === 'essenciais' && !
 export const POA_LUGARES = POA_PLACES.filter(p => p.tab === 'lugares')
 
 export { POA_NEIGHBORHOODS, resolveNeighborhood, getNeighborhoodById, filterPlacesByNeighborhood } from './neighborhoods.js'
-export { buildNeighborhoodCatalog, POA_FEATURED_NEIGHBORHOOD_STATS } from './neighborhoodAnalysis.js'
+export { buildNeighborhoodCatalog }
+
+/** estatísticas por bairro (após POA_PLACES — evita import circular) */
+export const POA_FEATURED_NEIGHBORHOOD_STATS = buildNeighborhoodCatalog(POA_PLACES)
 
 /** converte mock de evento para formato da lista (events.js / sympla) */
 export function poaMockToEventRow(place) {

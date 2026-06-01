@@ -1,9 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Bell, Moon, Sun, ChevronRight,
   LogOut, HelpCircle, Info, Edit3, Shield, User, Sparkles, Camera,
+  Heart, PlusCircle,
 } from 'lucide-react'
+import { getSavedPlaces, removeSavedPlace } from '../services/savedPlaces.js'
+import { pinMeta } from '../data/poa/mapCategories.js'
 import { useTheme } from '../context/ThemeContext.jsx'
 import { useUser } from '../context/UserContext.jsx'
 import {
@@ -35,6 +38,11 @@ export default function Profile() {
   const [draftInterests, setDraftInterests] = useState(user.interests || {})
   const [draftBehavior, setDraftBehavior] = useState(user.behaviorTags || [])
   const [draftTransport, setDraftTransport] = useState(user.transportApps || [])
+  const [savedPlaces, setSavedPlaces] = useState(() => getSavedPlaces())
+
+  useEffect(() => {
+    setSavedPlaces(getSavedPlaces())
+  }, [])
 
   const bg    = dark ? 'bg-dark-950'     : 'bg-gray-50'
   const bg2   = dark ? 'bg-dark-900'     : 'bg-white'
@@ -219,6 +227,67 @@ export default function Profile() {
             </div>
           )}
         </div>
+
+        <SectionLabel label="lugares salvos" dim={dim} />
+        <div className={`${bg2} border ${bdr} rounded-2xl overflow-hidden mb-3`}>
+          {savedPlaces.length === 0 ? (
+            <p className={`text-sm ${muted} px-4 py-5 text-center`}>
+              nenhum lugar salvo ainda. abra um local no mapa e toque em salvar.
+            </p>
+          ) : (
+            savedPlaces.map((place, i) => {
+              const meta = pinMeta(place.pinType || place.mapFilter)
+              return (
+                <div
+                  key={place.id}
+                  className={`flex items-center gap-2 px-2 py-1 ${i < savedPlaces.length - 1 ? `border-b ${bdr}` : ''}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.setItem('turio-focus-place', JSON.stringify(place))
+                      navigate('/home')
+                    }}
+                    className={`flex-1 flex items-center gap-3 px-2 py-2 rounded-xl text-left min-w-0 ${dark ? 'active:bg-dark-800' : 'active:bg-gray-50'}`}
+                  >
+                    <div className={`w-9 h-9 rounded-xl ${bg3} flex items-center justify-center text-base flex-shrink-0`}>
+                      {meta.emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${text} truncate`}>{place.name}</p>
+                      <p className={`text-[11px] ${muted} truncate`}>{place.address || place.preview}</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSavedPlaces(removeSavedPlace(place.id))}
+                    className="p-2 flex-shrink-0"
+                    aria-label="remover dos salvos"
+                  >
+                    <Heart size={14} className="text-zippi-400 fill-zippi-400" />
+                  </button>
+                </div>
+              )
+            })
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            sessionStorage.setItem('turio-open-suggest', '1')
+            navigate('/home')
+          }}
+          className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border ${bdr} ${bg2} mb-5 active:scale-[0.98] transition-transform`}
+        >
+          <div className={`w-9 h-9 rounded-xl ${bg3} flex items-center justify-center flex-shrink-0`}>
+            <PlusCircle size={18} className="text-zippi-400" />
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <p className={`text-sm font-bold ${text}`}>contribuir com o app</p>
+            <p className={`text-[11px] ${muted}`}>sugerir um lugar novo para o mapa</p>
+          </div>
+          <ChevronRight size={14} className={dim} />
+        </button>
 
         <SectionLabel label="preferências" dim={dim} />
         <div className={`${bg2} border ${bdr} rounded-2xl overflow-hidden mb-5`}>

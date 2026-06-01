@@ -379,6 +379,23 @@ frontend/src/data/poa/
 
 ---
 
+## desempenho do mapa (tiles)
+
+ao arrastar ou dar zoom, o leaflet **sempre** precisa de novos quadrados (tiles) para áreas que entram na tela — isso é normal. dá para reduzir flicker e requisições repetidas:
+
+| ajuste | onde | efeito |
+|--------|------|--------|
+| `updateWhenZooming: false` | `ZippiMap.jsx` | não baixa tiles no meio do gesto de zoom |
+| `fadeAnimation: false` | `L.map` | remove fade cinza a cada tile |
+| `keepBuffer: 5` | tile layer | mantém mais tiles fora da tela no dom (menos reload ao pan leve) |
+| `detectRetina: false` | tile layer | metade das requisições em telas retina |
+| cache pwa 600 tiles | `vite.config.js` | segunda visita à mesma região usa disco |
+| assinatura de pins | `ZippiMap.jsx` | não recria marcadores se só a ordem mudou |
+
+limites: área nova no mapa ainda carrega tiles uma vez; cache expira após 14 dias ou 600 células.
+
+---
+
 ## referências
 
 - [APIS.md](./APIS.md)

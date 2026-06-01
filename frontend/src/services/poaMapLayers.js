@@ -18,7 +18,7 @@ import {
 const ENDPOINT = 'https://overpass.kumi.systems/api/interpreter'
 const FALLBACK = 'https://overpass-api.de/api/interpreter'
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000
-const TRAFFIC_CACHE_KEY = 'turio_poa_traffic_osm_v3'
+const TRAFFIC_CACHE_KEY = 'turio_poa_traffic_osm_v5'
 const NATURE_CACHE_KEY = 'turio_poa_nature_osm_v3'
 
 const OSM_UA = 'TurioApp/1.0 (porto alegre urban copilot; contact: dev@turio.app)'
@@ -120,9 +120,71 @@ async function fetchAllTrafficWays() {
   return results.flatMap(r => (r.elements || []).filter(el => el.type === 'way' && el.geometry?.length >= 2))
 }
 
+function mockPathFromCoords(mockItem) {
+  if (!mockItem?.coordinates?.length) return null
+  return mockItem.coordinates.map(c => [c.lat, c.lng])
+}
+
+function enrichLeveWithOsm(seg, allWays, mockItem) {
+  const terms = roadSearchTermsFromMock(mockItem)
+  const matched = allWays.filter(w => nameMatchesWay(w.tags?.name, terms))
+  if (!matched.length) return null
+
+  const merged = mergeWayPaths(matched)
+  if (merged.length < 4) return null
+
+  const anchors = mockItem.coordinates.map(c => [c.lat, c.lng])
+  const i0 = merged.reduce((best, _, i) => {
+    const d = haversineM(merged[i], anchors[0])
+    return d < best.d ? { i, d } : best
+  }, { i: 0, d: Infinity }).i
+  const i1 = merged.reduce((best, _, i) => {
+    const d = haversineM(merged[i], anchors[anchors.length - 1])
+    return d < best.d ? { i, d } : best
+  }, { i: merged.length - 1, d: Infinity }).i
+
+  const path = i0 <= i1 ? merged.slice(i0, i1 + 1) : merged.slice(i1, i0 + 1).reverse()
+  return path.length >= 4 ? path : null
+}
+
+function haversineM(a, b) {
+  const R = 6371000
+  const dLat = (b[0] - a[0]) * Math.PI / 180
+  const dLon = (b[1] - a[1]) * Math.PI / 180
+  const h = Math.sin(dLat / 2) ** 2
+    + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+/** garante vias leves alinhadas (cache antigo podia ter geometria errada) */
+function finalizeLeveSegments(segments) {
+  return segments.map(seg => {
+    if (seg.trafficLevel !== 'leve') return seg
+    const mockItem = PORTO_ALEGRE_TRAFFIC_RAW.find(r => r.id === seg.id)
+    const mockPath = mockPathFromCoords(mockItem)
+    if (seg.geometrySource === 'osm-leve' && seg.path?.length >= 4) return seg
+    if (mockPath?.length >= 2) {
+      return { ...seg, path: mockPath, geometrySource: 'mock' }
+    }
+    return seg
+  })
+}
+
 function enrichSegmentWithOsm(seg, allWays) {
   const mockItem = PORTO_ALEGRE_TRAFFIC_RAW.find(r => r.id === seg.id)
   if (!mockItem) return seg
+
+  if (seg.trafficLevel === 'leve') {
+    const osmPath = enrichLeveWithOsm(seg, allWays, mockItem)
+    if (osmPath) {
+      return { ...seg, path: osmPath, geometrySource: 'osm-leve' }
+    }
+    const mockPath = mockPathFromCoords(mockItem)
+    if (mockPath?.length >= 2) {
+      return { ...seg, path: mockPath, geometrySource: 'mock' }
+    }
+    return seg
+  }
 
   const terms = roadSearchTermsFromMock(mockItem)
   const matched = allWays.filter(w => nameMatchesWay(w.tags?.name, terms))
@@ -181,17 +243,19 @@ out geom;
 export async function loadPoaTrafficSegments() {
   const mockSegments = getPoaTrafficMockSegments('todos')
   const cached = readCache(TRAFFIC_CACHE_KEY)
-  if (cached?.length) return cached
+  if (cached?.length) return finalizeLeveSegments(cached)
 
   try {
     const allWays = await fetchAllTrafficWays()
 
-    const enriched = mockSegments.map(seg => enrichSegmentWithOsm(seg, allWays))
-    const osmCount = enriched.filter(s => s.geometrySource === 'osm').length
+    const enriched = finalizeLeveSegments(
+      mockSegments.map(seg => enrichSegmentWithOsm(seg, allWays)),
+    )
+    const osmCount = enriched.filter(s => s.geometrySource?.startsWith('osm')).length
     if (osmCount >= 6) writeCache(TRAFFIC_CACHE_KEY, enriched)
     return enriched
   } catch {
-    return mockSegments
+    return finalizeLeveSegments(mockSegments)
   }
 }
 

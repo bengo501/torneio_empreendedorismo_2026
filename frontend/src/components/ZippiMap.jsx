@@ -2,6 +2,7 @@ import { useEffect, useRef, memo, forwardRef, useImperativeHandle } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { upvoteReport } from '../services/community.js'
+import { kmBetween } from '../services/nearbyPlaces.js'
 import { explorePinColor, eventPinColor } from '../styles/glass.js'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -17,8 +18,28 @@ const RED   = '#FF4444'
 
 function getTileUrl(dark) {
   return dark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+}
+
+/** menos requisições e recargas ao pan/zoom */
+const TILE_LAYER_OPTS = {
+  maxZoom: 19,
+  minZoom: 11,
+  keepBuffer: 5,
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  updateInterval: 250,
+  detectRetina: false,
+  crossOrigin: 'anonymous',
+}
+
+const MAP_INIT_OPTS = {
+  zoomControl: false,
+  attributionControl: false,
+  fadeAnimation: false,
+  zoomAnimation: true,
+  markerZoomAnimation: false,
 }
 
 function makeIcon(emoji, color = GREEN, size = 34) {
@@ -30,19 +51,31 @@ function makeIcon(emoji, color = GREEN, size = 34) {
 
 /** pin do usuário: círculo + triângulo abaixo + pulso na ponta */
 function makeUserPinIcon() {
+  const outline = '2.5px'
   return L.divIcon({
-    html: `<div class="turio-user-pin" style="position:relative;width:28px;height:40px">
-      <div class="turio-user-pulse" style="position:absolute;left:50%;bottom:7px;transform:translateX(-50%);width:18px;height:18px;border-radius:50%;background:${GREEN};opacity:0.42"></div>
-      <div style="position:absolute;left:50%;top:21px;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:12px solid #fff"></div>
-      <div style="position:absolute;left:50%;top:22px;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:11px solid ${GREEN_DARK}"></div>
-      <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:22px;height:22px;border-radius:50%;background:linear-gradient(145deg,#5AE88A 0%,${GREEN} 45%,${GREEN_DARK} 100%);border:2.5px solid #fff;box-shadow:0 2px 10px rgba(52,199,89,0.45)"></div>
-      <div style="position:absolute;left:50%;top:4px;transform:translateX(-50%);width:7px;height:4px;border-radius:50%;background:rgba(255,255,255,0.5)"></div>
+    html: `<div class="turio-user-pin" style="position:relative;width:34px;height:54px">
+      <div class="turio-user-pulse" style="position:absolute;left:50%;bottom:1px;width:26px;height:26px;border-radius:50%;background:${GREEN};opacity:0.52"></div>
+      <div style="position:absolute;left:50%;top:27px;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:17px solid #fff"></div>
+      <div style="position:absolute;left:50%;top:29px;transform:translateX(-50%);width:0;height:0;border-left:9.5px solid transparent;border-right:9.5px solid transparent;border-top:13px solid ${GREEN_DARK}"></div>
+      <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:26px;height:26px;border-radius:50%;background:linear-gradient(145deg,#5AE88A 0%,${GREEN} 45%,${GREEN_DARK} 100%);border:${outline} solid #fff;box-shadow:0 2px 12px rgba(52,199,89,0.5)"></div>
+      <div style="position:absolute;left:50%;top:5px;transform:translateX(-50%);width:8px;height:5px;border-radius:50%;background:rgba(255,255,255,0.55)"></div>
     </div>`,
     className: '',
-    iconSize: [28, 40],
-    iconAnchor: [14, 40],
-    popupAnchor: [0, -40],
+    iconSize: [34, 54],
+    iconAnchor: [17, 54],
+    popupAnchor: [0, -54],
   })
+}
+
+/** 1 = longe · >1 = mais perto do usuário */
+function proximityScaleKm(km) {
+  if (km == null || !Number.isFinite(km)) return 1
+  if (km <= 0.25) return 1.45
+  if (km <= 0.5) return 1.32
+  if (km <= 1) return 1.2
+  if (km <= 2) return 1.08
+  if (km <= 3) return 1
+  return 0.92
 }
 
 function makeDestIcon(label='') {
@@ -53,43 +86,58 @@ function makeDestIcon(label='') {
   })
 }
 
-const LABEL_HIDE_ZOOM = 12
-const LABEL_SHOW_ZOOM = 13
-const ICON_ZOOM = 16
+/** zoom <= DOT_ONLY: só bolinha colorida · nomes voltam ao aproximar · hero no zoom alto */
+const ZOOM_DOT_ONLY = 12.2
+const ZOOM_NAME_IN = 13.4
+const ZOOM_ICON_IN = 15
+const ZOOM_HERO = 17.8
 
-function makePlacePinIcon(label, color, emoji = '📍', zoom = 14) {
-  const short = (label ?? '').slice(0, 14)
+function clamp01(v) {
+  return Math.max(0, Math.min(1, v))
+}
 
-  if (zoom < LABEL_HIDE_ZOOM) {
+function makePlacePinIcon(label, color, emoji = '📍', zoom = 14, nearScale = 1) {
+  const short = (label ?? '').slice(0, 20)
+  const prox = Math.max(0.9, Math.min(1.55, nearScale))
+  const nameT = clamp01((zoom - ZOOM_NAME_IN) / 1.4)
+  const iconT = clamp01((zoom - ZOOM_ICON_IN) / (ZOOM_HERO - ZOOM_ICON_IN))
+  const dotOnly = zoom < ZOOM_DOT_ONLY || nameT < 0.04
+
+  const dotSize = Math.round((10 + clamp01((zoom - 10) / 4) * 4) * prox)
+
+  if (dotOnly) {
     return L.divIcon({
-      html: `<div style="width:8px;height:8px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);cursor:pointer"></div>`,
-      className: '', iconSize: [8, 8], iconAnchor: [4, 4], popupAnchor: [0, -4],
+      html: `<div style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:pointer"></div>`,
+      className: '',
+      iconSize: [dotSize, dotSize],
+      iconAnchor: [dotSize / 2, dotSize / 2],
+      popupAnchor: [0, -dotSize / 2],
     })
   }
 
-  if (zoom >= ICON_ZOOM) {
-    return L.divIcon({
-      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer">
-        <div style="width:22px;height:22px;border-radius:50%;background:${color};border:1.5px solid rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.32)">${emoji}</div>
-        <div style="background:${color};color:#fff;font-size:7px;font-weight:700;padding:1px 4px;border-radius:6px;white-space:nowrap;max-width:62px;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(255,255,255,0.85)">${short}</div>
-      </div>`,
-      className: '', iconSize: [64, 30], iconAnchor: [32, 30], popupAnchor: [0, -30],
-    })
-  }
+  const zoomBoost = 0.85 + iconT * 0.15
+  const circle = Math.round((16 + iconT * 26) * prox * zoomBoost)
+  const fontEmoji = Math.round((11 + iconT * 9) * prox)
+  const fontLabel = Math.round(8 + iconT * 6)
+  const heroLabel = iconT > 0.55
+  const labelOpacity = nameT
+  const gap = heroLabel ? 4 : 2
+  const labelHtml = heroLabel
+    ? `<span style="display:block;max-width:${Math.round(120 * prox)}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:${fontLabel}px;font-weight:800;text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.5);opacity:${labelOpacity};line-height:1.15">${short}</span>`
+    : `<span style="display:block;max-width:${Math.round(76 * prox)}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:${color};color:#fff;font-size:${fontLabel}px;font-weight:700;padding:2px 7px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.9);box-shadow:0 1px 5px rgba(0,0,0,0.35);opacity:${labelOpacity}">${short}</span>`
 
-  if (zoom >= LABEL_SHOW_ZOOM) {
-    return L.divIcon({
-      html: `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer">
-        <div style="background:${color};color:#fff;font-size:7px;font-weight:700;padding:1px 5px;border-radius:6px;white-space:nowrap;max-width:68px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 5px rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.88);line-height:1.1">${short}</div>
-        <div style="width:7px;height:7px;border-radius:50%;background:${color};border:1.5px solid #fff"></div>
-      </div>`,
-      className: '', iconSize: [68, 22], iconAnchor: [34, 22], popupAnchor: [0, -22],
-    })
-  }
+  const h = Math.round(circle + gap + (heroLabel ? fontLabel + 10 : fontLabel + 14) * labelOpacity)
+  const w = Math.max(circle, Math.round(80 * prox * (0.6 + iconT * 0.4)))
 
   return L.divIcon({
-    html: `<div style="width:8px;height:8px;border-radius:50%;background:${color};border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);cursor:pointer"></div>`,
-    className: '', iconSize: [8, 8], iconAnchor: [4, 4], popupAnchor: [0, -4],
+    html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:${gap}px;cursor:pointer;width:${w}px">
+      <div style="width:${circle}px;height:${circle}px;border-radius:50%;background:${color};border:${heroLabel ? 2.5 : 1.5}px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${fontEmoji}px;box-shadow:0 3px 12px rgba(0,0,0,0.38);flex-shrink:0">${emoji}</div>
+      ${labelHtml}
+    </div>`,
+    className: '',
+    iconSize: [w, h],
+    iconAnchor: [w / 2, h],
+    popupAnchor: [0, -h],
   })
 }
 
@@ -104,6 +152,7 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
   const tileLayerRef      = useRef(null)
   const layersRef         = useRef({ markers:[], routeLines:[], traffic:[], reports:[], placePins:[], nature:[], busStops:[], scooters:[] })
   const placePinsRef      = useRef(placePins)
+  const placePinsSigRef   = useRef('')
   const mapZoomRef        = useRef(15)
   const darkRef           = useRef(dark)
   // quando true, suprime o fitBounds automático para não interromper a animação cinemática
@@ -129,13 +178,21 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     if (!pins?.length) return
     const zoom = mapZoomRef.current
     const pc = darkRef.current ? 'zippi-popup' : 'zippi-popup-light'
+    const user = origin?.lat != null
+      ? { lat: origin.lat, lon: origin.lon ?? origin.lng }
+      : null
+
     pins.forEach(pin => {
       if (!pin.lat || !pin.lon) return
       const color = pin.color
         ?? (pin.type === 'event' ? eventPinColor(pin.category) : explorePinColor(pin.category))
+      const distKm = user
+        ? kmBetween(user, { lat: pin.lat, lon: pin.lon })
+        : null
+      const nearScale = proximityScaleKm(distKm)
       const m = L.marker([pin.lat, pin.lon], {
-        icon: makePlacePinIcon(pin.label, color, pin.emoji ?? '📍', zoom),
-        zIndexOffset: 50,
+        icon: makePlacePinIcon(pin.label, color, pin.emoji ?? '📍', zoom, nearScale),
+        zIndexOffset: 50 + Math.round((nearScale - 1) * 120),
       })
         .bindPopup(`<b>${pin.emoji ?? '📍'} ${pin.label}</b>${pin.desc ? `<br><small>${pin.desc}</small>` : ''}`, { className: pc })
         .on('click', () => onPinRef.current?.(pin))
@@ -151,10 +208,10 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       const s = document.createElement('style')
       s.id = 'zippi-map-css'
       s.textContent = `
-        @keyframes turioUserPulse{0%{transform:translateX(-50%) scale(0.55);opacity:.5}70%{transform:translateX(-50%) scale(2);opacity:0}100%{transform:translateX(-50%) scale(2);opacity:0}}
-        @keyframes turioUserBob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-2px)}}
-        .turio-user-pulse{animation:turioUserPulse 1.8s ease-out infinite}
-        .turio-user-pin > div:nth-child(4){animation:turioUserBob 2.4s ease-in-out infinite}
+        @keyframes turioUserPulse{0%{transform:translateX(-50%) scale(0.5);opacity:.58}70%{transform:translateX(-50%) scale(2.15);opacity:0}100%{transform:translateX(-50%) scale(2.15);opacity:0}}
+        @keyframes turioUserBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        .turio-user-pulse{left:50%!important;transform:translateX(-50%);animation:turioUserPulse 1.7s ease-out infinite}
+        .turio-user-pin{animation:turioUserBob 2s ease-in-out infinite;filter:drop-shadow(0 2px 6px rgba(52,199,89,0.35))}
         .leaflet-container{font-family:Inter,system-ui,sans-serif;z-index:0!important}
         .leaflet-pane{z-index:1!important}
         .leaflet-tile-pane{z-index:1!important}
@@ -167,13 +224,15 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
         .zippi-popup .leaflet-popup-tip{background:rgba(28,28,40,0.92)}
         .zippi-popup-light .leaflet-popup-content-wrapper{background:rgba(255,255,255,0.95);color:#111;border-radius:14px;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 20px rgba(0,0,0,.12);backdrop-filter:blur(20px)}
         .zippi-popup-light .leaflet-popup-tip{background:rgba(255,255,255,0.95)}
+        .leaflet-tile-container{pointer-events:none}
+        .leaflet-zoom-anim .leaflet-zoom-animated{will-change:auto}
       `
       document.head.appendChild(s)
     }
 
     const center = origin ? [origin.lat, origin.lon] : [-30.0346, -51.2177]
-    const map = L.map(containerRef.current, { center, zoom:15, zoomControl:false, attributionControl:false })
-    const tileLayer = L.tileLayer(getTileUrl(dark), { maxZoom:19 }).addTo(map)
+    const map = L.map(containerRef.current, { center, zoom: 15, ...MAP_INIT_OPTS })
+    const tileLayer = L.tileLayer(getTileUrl(dark), TILE_LAYER_OPTS).addTo(map)
     tileLayerRef.current = tileLayer
     L.control.attribution({ position:'bottomleft', prefix:false })
       .addAttribution('© <a href="https://carto.com">CARTO</a> © <a href="https://osm.org">OSM</a>')
@@ -190,10 +249,14 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
       })
     }
     map.on('moveend', emitBounds)
-    map.on('zoomend', () => {
-      mapZoomRef.current = map.getZoom()
-      renderPlacePins()
-    })
+    const onZoomChange = () => {
+      const z = map.getZoom()
+      const prev = mapZoomRef.current
+      mapZoomRef.current = z
+      if (Math.abs(z - prev) > 0.08) renderPlacePins()
+    }
+    map.on('zoomend', onZoomChange)
+    map.on('zoom', onZoomChange)
     map.whenReady(emitBounds)
 
     mapRef.current = map
@@ -305,10 +368,27 @@ const ZippiMap = memo(forwardRef(function ZippiMap({
     }
   }, [origin, destinations, routePolyline])
 
-  /* pins explorar / hoje — ícones ao aproximar (zoom >= 15) */
+  function placePinsSignature(pins, user, zoom) {
+    if (!pins?.length) return ''
+    const ids = pins.map(p => p.id).join('|')
+    const zKey = Math.round(zoom * 10)
+    if (!user?.lat) return `${ids}@z${zKey}`
+    const bucket = pins.map(p => {
+      const d = kmBetween(user, { lat: p.lat, lon: p.lon })
+      return `${p.id}:${Math.floor((d ?? 99) * 4)}`
+    }).join('|')
+    return `${ids}@${bucket}@z${zKey}`
+  }
+
+  /* pins explorar — escala ao aproximar do usuário */
   useEffect(() => {
+    const z = mapRef.current?.getZoom() ?? mapZoomRef.current
+    const sig = placePinsSignature(placePins, origin, z)
+    if (sig === placePinsSigRef.current) return
+    placePinsSigRef.current = sig
+    placePinsRef.current = placePins
     renderPlacePins()
-  }, [placePins])
+  }, [placePins, origin?.lat, origin?.lon])
 
   /* paradas de ônibus */
   useEffect(() => {

@@ -38,18 +38,49 @@ export function getCurrentPosition(highAccuracy = true) {
   })
 }
 
+/** título = cidade · subtítulo = bairro · rua */
+export function formatLocationLines(location, {
+  gpsLoading = false,
+  gpsError = false,
+  hasCoords = false,
+  fallbackCity = 'porto alegre',
+} = {}) {
+  if (gpsLoading && !hasCoords) {
+    return { title: 'localizando…', subtitle: 'detectando cidade, bairro e rua…' }
+  }
+  if (gpsError) {
+    return { title: fallbackCity, subtitle: 'não foi possível obter o gps' }
+  }
+  const city = location?.city || fallbackCity
+  const parts = [location?.neighborhood, location?.street].filter(Boolean)
+  return {
+    title: city,
+    subtitle: parts.length ? parts.join(' · ') : 'aguardando detalhes do endereço…',
+  }
+}
+
 /** Reverse geocode detalhado: rua, bairro, cidade */
 export async function reverseGeocodeDetailed(lat, lon) {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=pt-BR`,
-      { headers: { 'Accept-Language': 'pt-BR' } }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1&accept-language=pt-BR`,
+      {
+        headers: {
+          'Accept-Language': 'pt-BR',
+          'User-Agent': 'TurioApp/1.0 (porto alegre; contact: dev@turio.app)',
+        },
+      },
     )
     const data = await res.json()
     const a = data.address || {}
-    const street = [a.road || a.pedestrian || a.footway, a.house_number].filter(Boolean).join(', ')
-    const neighborhood = a.suburb || a.neighbourhood || a.city_district || a.quarter || null
-    const city = a.city || a.town || a.village || a.municipality || 'Porto Alegre'
+    const street = [
+      a.road || a.pedestrian || a.footway || a.residential,
+      a.house_number,
+    ].filter(Boolean).join(', ')
+    const neighborhood = a.suburb || a.neighbourhood || a.city_district
+      || a.quarter || a.residential || null
+    const city = a.city || a.town || a.village || a.municipality
+      || a.county || 'Porto Alegre'
     const state = a.state || 'RS'
     const parts = [street, neighborhood, city].filter(Boolean)
     const label = parts.length ? parts.join(', ') : (data.display_name ?? `${lat.toFixed(4)}, ${lon.toFixed(4)}`)

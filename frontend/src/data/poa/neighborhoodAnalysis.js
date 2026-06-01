@@ -1,4 +1,3 @@
-import { POA_PLACES } from './index.js'
 import { POA_NEIGHBORHOODS, resolveNeighborhood } from './neighborhoods.js'
 
 const FEATURED_IDS = [
@@ -22,7 +21,15 @@ function categoryKey(place) {
 /**
  * catálogo analítico por bairro (lugares tab) — nomes, endereços e categorias.
  */
-export function buildNeighborhoodCatalog(places = POA_PLACES) {
+export function buildNeighborhoodCatalog(places) {
+  if (!places?.length) {
+    return {
+      featured: [],
+      all: POA_NEIGHBORHOODS.map(n => summarizeNeighborhood({ neighborhood: n, places: [], byCategory: {} })),
+      unassignedCount: 0,
+      unassignedSample: [],
+    }
+  }
   const lugares = places.filter(p => p.tab === 'lugares')
   const byId = Object.fromEntries(
     POA_NEIGHBORHOODS.map(n => [n.id, { neighborhood: n, places: [], byCategory: {} }]),
@@ -79,6 +86,3 @@ function summarizeNeighborhood(bucket) {
     })),
   }
 }
-
-/** estatísticas dos quatro bairros prioritários (dev / painel futuro) */
-export const POA_FEATURED_NEIGHBORHOOD_STATS = buildNeighborhoodCatalog()

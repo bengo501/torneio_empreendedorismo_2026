@@ -14,7 +14,15 @@ import SuggestPlaceModal  from '../components/SuggestPlaceModal.jsx'
 import VoiceAssistant  from '../components/VoiceAssistant.jsx'
 import ServiceCard     from '../components/ServiceCard.jsx'
 import MultiVehicleCard from '../components/MultiVehicleCard.jsx'
-import { getCurrentPosition, watchPosition, reverseGeocodeDetailed, searchPlaces, fetchRoute } from '../services/geo.js'
+import {
+  getCurrentPosition,
+  watchPosition,
+  reverseGeocodeDetailed,
+  formatLocationLines,
+  searchPlaces,
+  fetchRoute,
+} from '../services/geo.js'
+import { toggleSavedPlace, getSavedPlaces } from '../services/savedPlaces.js'
 import {
   filterNearbyExplorePlaces,
   countNearbyExplorePlaces,
@@ -264,13 +272,10 @@ export default function Home() {
   const [poaPlaces, setPoaPlaces] = useState([])
   const [previewPlace, setPreviewPlace] = useState(null)
   const [previewTraffic, setPreviewTraffic] = useState(null)
-  const [savedPlaceIds, setSavedPlaceIds] = useState(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem('turio-saved-places') || '[]'))
-    } catch {
-      return new Set()
-    }
-  })
+  const [savedPlaceIds, setSavedPlaceIds] = useState(
+    () => new Set(getSavedPlaces().map(p => p.id)),
+  )
+  const geocodeDebounceRef = useRef(null)
 
   /* ── Events (Hoje tab) ─────────────────────────────────────── */
   const [eventCat, setEventCat] = useState('todos')
@@ -313,11 +318,44 @@ export default function Home() {
   /* ── Init ──────────────────────────────────────────────────── */
   useEffect(() => {
     detectGPS()
+    const gpsFallback = setTimeout(() => {
+      setGpsLoading(loading => {
+        if (loading) {
+          setGpsError(true)
+          setOrigin(o => o?.lat ? o : POA_DEFAULT)
+          setLocation({ city: 'Porto Alegre', neighborhood: 'Centro', street: null })
+          setOriginLabel(POA_DEFAULT.label)
+        }
+        return false
+      })
+    }, 18000)
     setReports(getReports())
     setPoaPlaces(POA_PLACES)
     geocodePendingPlaces(POA_PLACES, { max: 8 }).then(cache => {
       setPoaPlaces(prev => applyGeocodeCache(prev.length ? prev : POA_PLACES, cache))
     })
+    if (sessionStorage.getItem('turio-open-suggest') === '1') {
+      sessionStorage.removeItem('turio-open-suggest')
+      setShowSuggestPlace(true)
+    }
+    const focusRaw = sessionStorage.getItem('turio-focus-place')
+    if (focusRaw) {
+      sessionStorage.removeItem('turio-focus-place')
+      try {
+        const p = JSON.parse(focusRaw)
+        const full = POA_PLACES.find(x => x.id === p.id) || p
+        setPreviewPlace(full)
+        setActiveTab('explorar')
+        setExploreSection('lugares')
+        pendingCenter.current = true
+        if (full.lat != null) {
+          setTimeout(() => {
+            mapRef.current?.focusPoint(full.lat, full.lng ?? full.lon, 16, mapSheetPadding())
+          }, 400)
+        }
+      } catch { /* ignore */ }
+    }
+    return () => clearTimeout(gpsFallback)
   }, [])
 
   async function refreshWeather(lat, lon) {
@@ -341,37 +379,81 @@ export default function Home() {
     }
   }, [origin])
 
-  /* ── GPS contínuo (explorar · raio 3 km em poa) ─────────────── */
+  const applyUserPosition = useCallback(async (pos, { focusMap = false } = {}) => {
+    setGpsError(false)
+    setGpsLoading(false)
+    setOrigin(prev => ({ lat: pos.lat, lon: pos.lon, label: prev?.label ?? '' }))
+    try {
+      const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
+      setOrigin({ lat: pos.lat, lon: pos.lon, label: loc.label })
+      setOriginLabel(loc.label)
+      setLocation({
+        city: loc.city,
+        neighborhood: loc.neighborhood,
+        street: loc.street,
+      })
+      setExploreCity(inferExploreCityFromCoords(pos.lat, pos.lon))
+      if (focusMap) {
+        mapRef.current?.focusPoint(pos.lat, pos.lon, 15, mapSheetPadding())
+      }
+    } catch {
+      setLocation({ city: 'Porto Alegre', neighborhood: null, street: null })
+      const fallback = `${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}`
+      setOriginLabel(fallback)
+      setOrigin({ lat: pos.lat, lon: pos.lon, label: fallback })
+    }
+  }, [])
+
+  /* ── GPS contínuo ───────────────────────────────────────────── */
   useEffect(() => {
     if (isBentoCity(exploreCity)) return undefined
-    const stop = watchPosition(pos => {
-      setOrigin(prev => {
-        if (!prev?.lat) return { lat: pos.lat, lon: pos.lon, label: prev?.label ?? originLabel }
-        if (kmBetweenPlaces(prev, pos) < 0.03) return prev
-        return { ...prev, lat: pos.lat, lon: pos.lon }
-      })
-    })
-    return stop
-  }, [exploreCity])
+    const stop = watchPosition(
+      pos => {
+        setOrigin(prev => {
+          if (!prev?.lat) {
+            applyUserPosition(pos)
+            return { lat: pos.lat, lon: pos.lon, label: '' }
+          }
+          if (kmBetweenPlaces(prev, pos) < 0.03) return prev
+          clearTimeout(geocodeDebounceRef.current)
+          geocodeDebounceRef.current = setTimeout(() => {
+            applyUserPosition(pos)
+          }, 600)
+          return { ...prev, lat: pos.lat, lon: pos.lon }
+        })
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+        onError: () => {},
+      },
+    )
+    return () => {
+      stop()
+      clearTimeout(geocodeDebounceRef.current)
+    }
+  }, [exploreCity, applyUserPosition])
 
   /* ── GPS (Firefox-safe two-pass) ───────────────────────────── */
   async function detectGPS() {
-    setGpsLoading(true); setGpsError(false)
+    setGpsLoading(true)
+    setGpsError(false)
     try {
       let pos
-      try { pos = await getCurrentPosition(true)
-      } catch { pos = await getCurrentPosition(false) }
-      const loc = await reverseGeocodeDetailed(pos.lat, pos.lon)
-      setOrigin({ ...pos, label: loc.label }); setOriginLabel(loc.label)
-      setLocation({ city: loc.city, neighborhood: loc.neighborhood, street: loc.street })
-      setExploreCity(inferExploreCityFromCoords(pos.lat, pos.lon))
-      mapRef.current?.focusPoint(pos.lat, pos.lon, 15, mapSheetPadding())
+      try {
+        pos = await getCurrentPosition(true)
+      } catch {
+        pos = await getCurrentPosition(false)
+      }
+      await applyUserPosition(pos, { focusMap: true })
     } catch {
       setGpsError(true)
       setOriginLabel(POA_DEFAULT.label)
       setOrigin(POA_DEFAULT)
       setLocation({ city: 'Porto Alegre', neighborhood: 'Centro', street: null })
-    } finally { setGpsLoading(false) }
+      setGpsLoading(false)
+    }
   }
 
   /* ── Route ─────────────────────────────────────────────────── */
@@ -1042,15 +1124,18 @@ export default function Home() {
     setPreviewPlace(null)
   }
 
-  function toggleSavePlace(id) {
-    setSavedPlaceIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      localStorage.setItem('turio-saved-places', JSON.stringify([...next]))
-      return next
-    })
+  function handleToggleSavePlace(place) {
+    if (!place?.id) return
+    const list = toggleSavedPlace(place)
+    setSavedPlaceIds(new Set(list.map(p => p.id)))
   }
+
+  const locationLines = formatLocationLines(location, {
+    gpsLoading,
+    gpsError,
+    hasCoords: Boolean(origin?.lat),
+    fallbackCity: exploreCity === 'bentogoncalves' ? 'bento gonçalves' : 'porto alegre',
+  })
 
   // Text class helpers
   const text  = dark ? 'text-white'    : 'text-gray-900'
@@ -1109,16 +1194,11 @@ export default function Home() {
         <div className="flex items-start justify-between gap-2 pointer-events-auto">
           <button onClick={detectGPS} className="min-w-0 flex-1 text-left active:opacity-80 transition-opacity pr-1">
             <p className={`text-lg font-semibold truncate leading-tight ${dark ? 'text-white' : 'text-black'}`}>
-              {gpsLoading ? 'localizando…' : (location.city || 'porto alegre')}
+              {locationLines.title}
             </p>
-            <p className={`text-[11px] truncate leading-snug mt-0.5 ${dark ? 'text-white/60' : 'text-black'}`}>
-              {gpsLoading
-                ? 'detectando localização…'
-                : [
-                    location.neighborhood || 'bairro',
-                    location.street || originLabel.split(',')[0] || 'rua',
-                    weather?.temp != null ? `${weather.temp}°` : '—°',
-                  ].join(' · ')}
+            <p className={`text-[11px] truncate leading-snug mt-0.5 ${dark ? 'text-white/60' : 'text-black/70'}`}>
+              {locationLines.subtitle}
+              {!gpsLoading && weather?.temp != null ? ` · ${weather.temp}°` : ''}
             </p>
           </button>
 
@@ -1188,7 +1268,7 @@ export default function Home() {
         onClose={() => setPreviewPlace(null)}
         onRoute={handlePreviewRoute}
         onAskAi={handlePreviewAskAi}
-        onSave={() => previewPlace && toggleSavePlace(previewPlace.id)}
+        onSave={() => previewPlace && handleToggleSavePlace(previewPlace)}
       />
 
       <TrafficPreviewSheet
@@ -1288,7 +1368,10 @@ export default function Home() {
                         <div className="absolute inset-0 rounded-full bg-zippi-400" />
                         <div className="absolute inset-0 rounded-full bg-zippi-400 animate-ping opacity-40" />
                       </div>
-                      <p className={`text-sm ${muted} truncate flex-1`}>{originLabel}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${text} truncate`}>{locationLines.title}</p>
+                        <p className={`text-xs ${muted} truncate`}>{locationLines.subtitle}</p>
+                      </div>
                     </div>
 
                     {/* Destinos — edição pela dock */}
@@ -1350,19 +1433,6 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Saved + Recent + Explore section */}
-                  {!focus && (
-                    <>
-                      <button
-                        onClick={() => switchTab('explorar')}
-                        className="w-full mt-2 flex items-center justify-between px-4 py-3 rounded-2xl active:scale-[0.98] transition-all"
-                        style={{ ...glassSecondary, border: '1px solid rgba(61,237,122,0.25)' }}
-                      >
-                        <span className={`text-xs font-semibold ${text}`}>Explorar a cidade</span>
-                        <ChevronRight size={14} className="text-zippi-400" />
-                      </button>
-                    </>
-                  )}
                 </div>
               )}
 
@@ -1417,7 +1487,8 @@ export default function Home() {
                       <ArrowLeft size={15} className={muted} />
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs ${muted} truncate`}>{originLabel}</p>
+                      <p className={`text-xs ${muted} truncate`}>{locationLines.subtitle}</p>
+                      <p className={`text-[10px] ${dim} truncate`}>{locationLines.title}</p>
                       <p className={`text-sm font-bold ${text} truncate`}>{destinations[0]?.label}</p>
                     </div>
                     <div className="flex-shrink-0 px-2.5 py-1 rounded-xl" style={glassSecondary}>
@@ -1553,15 +1624,6 @@ export default function Home() {
                   <p className={`text-[11px] ${muted} mt-1`}>
                     {nearbyExploreCount} lugares em {EXPLORE_RADIUS_KM} km · atualiza ao se mover
                   </p>
-                )}
-                {!isBentoCity(exploreCity) && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSuggestPlace(true)}
-                    className={`text-[11px] font-bold text-zippi-400 mt-1.5 active:opacity-70`}
-                  >
-                    sugerir lugar · ajudar a manter o mapa
-                  </button>
                 )}
               </div>
 
